@@ -10,10 +10,8 @@ async function main() {
     contractAddress
   );
 
- //  await fillSampleData(contractIst);
+  await fillSampleData(contractIst);
   // await grantAdminRole(contractIst);
-  await getSportEventsData('Soccer', new Date('2024-07-02'), contractIst);
-
 
 }
 main().then(() => process.exit(0));
@@ -50,18 +48,5 @@ async function fillSampleData(contractIst: OIBetShowcaseContract) {
     // return;
   }
 }
-async function getSportEventsData(sport: string, date: Date, contractIst: OIBetShowcaseContract) {
-  const dateTimestamp = date.getTime()/1000;
-  const startOfDay = Math.floor((dateTimestamp - (dateTimestamp % 86400)));
-  console.log("Start of day", startOfDay);
-  console.log("Sport", sport);
 
-  const startOfDayEvents = await contractIst.getSportEventsByDateAndSport(startOfDay, sport);
-  console.log("Events", startOfDayEvents);
-  console.log("Events length", startOfDayEvents.length);
-  for (const event of startOfDayEvents) {
-    console.log("Event", event);
-    console.log("Event start time:", new Date(Number(event[2]) * 1000))
-  }
-}
 
