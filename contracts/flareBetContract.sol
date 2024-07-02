@@ -57,7 +57,7 @@ contract OIBetShowcase is AccessControl {
     mapping(bytes32 => Bet[]) public betsByEvent;
     mapping(uint256 => Bet[]) public betsById;
 
-    event SportEventCreated(bytes32 uuid, string title, uint256 startTime);
+    event SportEventCreated(bytes32 uuid, string title, string sport, uint256 startTime);
     event BetPlaced(
         uint256 id,
         bytes32 eventUUID,
@@ -122,7 +122,7 @@ contract OIBetShowcase is AccessControl {
             ev
         ); 
 
-        emit SportEventCreated(uuid, title, startTime); 
+        emit SportEventCreated(uuid, title, sport, startTime); 
     }
 
     function getSportEventsByDateAndSport(
