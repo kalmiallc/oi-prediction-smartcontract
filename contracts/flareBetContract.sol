@@ -122,7 +122,7 @@ contract OIBetShowcase is AccessControl {
             ev
         ); 
 
-        emit SportEventCreated(uuid, title, sport, startTime); 
+        emit SportEventCreated(uuid, title, sport, ev.startTime); 
     }
 
     function getSportEventsByDateAndSport(
@@ -222,7 +222,7 @@ contract OIBetShowcase is AccessControl {
         return betsByEventStartDate[date];
     }
 
-    function calculateAproximateBetAmount(
+    function calculateAproximateBetReturn(
         uint256 amount,
         uint32 choiceId,
         bytes32 eventUUID
