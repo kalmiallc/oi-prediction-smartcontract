@@ -1,6 +1,5 @@
 // type of our contract
-import { OIBetShowcaseContract } from "../../typechain-types";
-import { ZeroAddress } from "ethers";
+import { OIBetShowcaseContract } from "../typechain-types";
 import { ethers } from "hardhat";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
@@ -17,10 +16,10 @@ describe("Flare bet data contract", function () {
   const choiceA = "Team A";
   const choiceB = "Team B";
   const choiceC = "Draw";
-  const initialPool = 1000;
-  const initialVotesA = 10;
+  const initialPool = ethers.parseUnits("1000", "ether");
+  const initialVotesA = 5;
   const initialVotesB = 15;
-  const initialVotesC = 35;
+  const initialVotesC = 30;
   const title2 = "Test Event 2";
   const title3 = "Test Event 3";
   const startTime = Math.floor(Date.now() / 1000); // Current timestamp in seconds
@@ -103,20 +102,20 @@ describe("Flare bet data contract", function () {
         .withArgs(anyValue, title3, startTime3);
     });
 
-    it("Should retrieve events by date", async () => {
-      const events = await flareBetContract.getSportEventsByDate(startOfDay1);
-      expect(events.length).to.equal(2);
-      expect(events[0].title).to.equal(title);
-      expect(events[1].title).to.equal(title2);
-      console.log(events[0]);
-    });
-
     it("Should retrieve events by date and sport", async () => {
       const events1 = await flareBetContract.getSportEventsByDateAndSport(
         startOfDay1,
         sport
       );
       expect(events1.length).to.equal(2);
+      const total = events1[0].poolAmount;
+      const choices = events1[0].choices;
+      // sum choices totalBetsAmount
+      let totalBetsAmount = 0;
+      for (let i = 0; i < choices.length; i++) {
+        totalBetsAmount += Number(choices[i].totalBetsAmount);
+      }
+      expect(Number(totalBetsAmount)).to.equal(Number(total));
 
       const events2 = await flareBetContract.getSportEventsByDateAndSport(
         startOfDay3,
@@ -125,16 +124,18 @@ describe("Flare bet data contract", function () {
       expect(events2.length).to.equal(1);
     });
 
-    describe("Voting on an event", function () {
-      it("Should vote on an event", async () => {
+    describe("Betting on an event", function () {
+      let initialChoices: any;
+      it("Should bet on an event", async () => {
         const events = await flareBetContract.getSportEventsByDateAndSport(
           startOfDay1,
           sport
         );
         const event = events[0];
         expect(event.title).to.equal(title);
+        initialChoices = event.choices;
         const voter = owner.address;
-        const voteAmount = 100;
+        const voteAmount = ethers.parseUnits("10", "ether");
         const choice = 1;
         const uid = event.uuid;
 
@@ -144,6 +145,17 @@ describe("Flare bet data contract", function () {
         await expect(tranData)
           .to.emit(flareBetContract, "BetPlaced")
           .withArgs(anyValue, uid, voter, voteAmount, choice);
+
+        const updatedEvents = await flareBetContract.getSportEventsByDateAndSport(
+          startOfDay1,
+          sport
+        );
+        const updatedEvent = updatedEvents[0];
+        const updatedChoices = updatedEvent.choices;
+        expect(updatedChoices[1].totalBetsAmount).not.to.equal(initialChoices[1].totalBetsAmount);
+        expect(updatedChoices[1].currentMultiplier).not.to.equal(initialChoices[1].currentMultiplier);
+        console.log("initialChoices", initialChoices);
+        console.log("updatedChoices", updatedChoices);
       });
 
       it("Should retrieve votes for an event", async () => {
@@ -154,7 +166,8 @@ describe("Flare bet data contract", function () {
         expect(bets).to.not.be.empty;
         expect(bets.length).to.equal(1);
         expect(bets[0].id).to.equal(1);
-        expect(bets[0].betAmount).to.equal(100);
+        expect(bets[0].betAmount).to.equal(ethers.parseUnits("10", "ether"));
+        expect(bets[0].winMultiplier).to.be.greaterThan(1);
       });
     });
   });
