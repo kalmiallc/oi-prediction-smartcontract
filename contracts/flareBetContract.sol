@@ -174,10 +174,10 @@ contract OIBetShowcase is AccessControl {
         uint256 totalChoiceAmount = currentEvent.choices[choice].totalBetsAmount + (amount * multiplier / 1000);
 
         require(
-            currentEvent.choices[choice].totalBetsAmount + totalChoiceAmount  <= currentEvent.poolAmount,
+            totalChoiceAmount  <= currentEvent.poolAmount,
             "Total bets amount exceeds pool amount"
         );
-        currentEvent.choices[choice].totalBetsAmount += totalChoiceAmount;
+        currentEvent.choices[choice].totalBetsAmount = totalChoiceAmount;
         
         // recalculate choices
         for (uint256 i = 0; i < currentEvent.choices.length; i++) {
@@ -253,17 +253,15 @@ contract OIBetShowcase is AccessControl {
         uint256 totalChoiceAmount,
         uint256 totalPoolAmount
     ) private pure returns (uint256) {
-        uint32  feePercentage = 5;
-        uint32 safetyFactor = 105;
+        uint32  feePercentage = 1;
+        uint32 adjustmentFactor = 101;
         uint256 totalChoiceAmountWithFee = totalChoiceAmount + (feePercentage * totalChoiceAmount / 100);
         require(totalPoolAmount > 0, "Pool amount must be greater than 0");
         require(totalChoiceAmount > 0, "Choice amount must be greater than 0");
         require(totalPoolAmount >= totalChoiceAmountWithFee , "Pool amount must be greater than choice amount");
-        
         // the multipiler is a factor of 1000
-        uint256 multiplier = ((totalPoolAmount * 100000 / safetyFactor) / (totalChoiceAmountWithFee)); 
+        uint256 multiplier = (((totalPoolAmount)  * 100000 / adjustmentFactor) / (totalChoiceAmountWithFee)); 
         // new total choice amount cannot be bigger than the total pool amount
-        require(totalPoolAmount >= totalChoiceAmount * multiplier / 1000, "Pool amount must be greater than choice amount");       
         return multiplier;
     }
 

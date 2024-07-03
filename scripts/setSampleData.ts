@@ -4,7 +4,7 @@ import { OIBetShowcaseContract } from "../typechain-types";
 import sampleData from "./sampleSportEvents.json";
 
 async function main() {
-  const contractAddress = "0x97C72b91F953cC6142ebA598fa376B80fbACA1C2";
+  const contractAddress = "0xEbc2388AB1Be3A972d6e919B5d13E9cE012E1D00";
   const contractIst: OIBetShowcaseContract = await ethers.getContractAt(
     "OIBetShowcase",
     contractAddress
