@@ -4,7 +4,7 @@ export enum Sports {
     Badminton = "Badminton",
     BeachVolley = "Beach Volley",
     FieldHockey = "Field Hockey",
-    Football = "Football",
+    Soccer = "Soccer",
     Handball = "Handball",
     TableTennis = "Table Tennis",
     Tennis = "Tennis",
