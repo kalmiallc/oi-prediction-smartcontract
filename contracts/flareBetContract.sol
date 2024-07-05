@@ -276,10 +276,10 @@ contract OIBetShowcase is AccessControl {
     function generateUUID(
         string memory title,
         uint256 startTime
-    ) private view returns (bytes32) {
+    ) private pure returns (bytes32) {
         return
             keccak256(
-                abi.encodePacked(block.timestamp, msg.sender, title, startTime)
+                abi.encodePacked(title, startTime)
             );
     }
 }
