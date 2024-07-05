@@ -37,16 +37,16 @@ describe("Flare bet data contract", function () {
   describe("Retrieving bet events", function () {
     before(async () => {
       const ownerAddress = owner.address; // Store the owner address in a separate variable
-      await flareBetContract.grantRole(
-        ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
-        ownerAddress
-      );
+      // await flareBetContract.grantRole(
+      //   ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
+      //   ownerAddress
+      // );
 
-      const ownerRole = await flareBetContract.hasRole(
-        ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
-        ownerAddress
-      );
-      expect(ownerRole).to.equal(true);
+      // const ownerRole = await flareBetContract.hasRole(
+      //   ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
+      //   ownerAddress
+      // );
+      // expect(ownerRole).to.equal(true);
 
       // Create an event
       const tranData = flareBetContract.createSportEvent(
@@ -65,7 +65,7 @@ describe("Flare bet data contract", function () {
 
       await expect(tranData)
         .to.emit(flareBetContract, "SportEventCreated")
-        .withArgs(anyValue, title, startTime);
+        .withArgs(anyValue, title, sport, startTime);
 
       const tranDat2 = flareBetContract.createSportEvent(
         title2,
@@ -82,7 +82,7 @@ describe("Flare bet data contract", function () {
       );
       await expect(tranDat2)
         .to.emit(flareBetContract, "SportEventCreated")
-        .withArgs(anyValue, title2, startTime);
+        .withArgs(anyValue, title2, sport, startTime);
 
       const tranData3 = flareBetContract.createSportEvent(
         title3,
@@ -99,7 +99,7 @@ describe("Flare bet data contract", function () {
       );
       await expect(tranData3)
         .to.emit(flareBetContract, "SportEventCreated")
-        .withArgs(anyValue, title3, startTime3);
+        .withArgs(anyValue, title3, sport, startTime3);
     });
 
     it("Should retrieve events by date and sport", async () => {

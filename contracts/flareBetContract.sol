@@ -2,25 +2,17 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract OIBetShowcase is AccessControl {
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+contract OIBetShowcase is Ownable {
 
-
+    uint256 public constant DAY = 86400;
 
     // max bet is 100 songbird / flare
-    uint256 private maxBet;
+    uint256 private maxBet = 100 ether;
     uint256 private betId = 0;
 
-    constructor() {
-        // set defualt admin to owner
-        address defaultAdmin = msg.sender;
-        maxBet = 100 ether;
-        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        _grantRole(PAUSER_ROLE, defaultAdmin);
-    }
+    constructor() {}
 
     struct SportEvent {
         bytes32 uuid;
@@ -79,14 +71,14 @@ contract OIBetShowcase is AccessControl {
         uint32 initialVotesB,
         uint32 initialVotesC,
         uint256 initialPool
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyOwner {
         bytes32 uuid = generateUUID(title, startTime);
         require(sportEvents[uuid].uuid == 0, "Event already exists");
         SportEvent storage ev = sportEvents[uuid];
         ev.uuid = uuid;
         ev.title = title;
 
-        // // devide the pool amount by the number of choices
+        // divide the pool amount by the number of choices
         ev.poolAmount = initialPool;
         ev.startTime = startTime;
         ev.duration = duration;
@@ -201,8 +193,8 @@ contract OIBetShowcase is AccessControl {
     }
 
     //TODO: This is just a mockup, implement the logic to settle the bet
-    function claimWinnings(uint256 betId) external {
-        Bet[] storage bets = betsById[betId];
+    function claimWinnings(uint256 _betId) external {
+        Bet[] storage bets = betsById[_betId];
         require(bets.length > 0, "Bet does not exist");
         Bet storage bet = bets[0];
         require(bet.bettor == msg.sender, "You are not the bettor");
@@ -239,13 +231,11 @@ contract OIBetShowcase is AccessControl {
         uint256 multiplier = calculateMultiplier(totalChoiceAmount, totalPoolAmount);
         return amount * multiplier;
     }
-    
-
 
     function roundTimestampToDay(
         uint256 timestamp
     ) private pure returns (uint256) {
-        return timestamp - (timestamp % 86400);
+        return timestamp - (timestamp % DAY);
     }
 
     //TODO: Need to test and check if the logic is correct
@@ -253,8 +243,8 @@ contract OIBetShowcase is AccessControl {
         uint256 totalChoiceAmount,
         uint256 totalPoolAmount
     ) private pure returns (uint256) {
-        uint32  feePercentage = 1;
-        uint32 adjustmentFactor = 101;
+        uint8 feePercentage = 1;
+        uint8 adjustmentFactor = 101;
         uint256 totalChoiceAmountWithFee = totalChoiceAmount + (feePercentage * totalChoiceAmount / 100);
         require(totalPoolAmount > 0, "Pool amount must be greater than 0");
         require(totalChoiceAmount > 0, "Choice amount must be greater than 0");
