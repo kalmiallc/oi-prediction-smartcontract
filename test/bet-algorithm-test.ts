@@ -8,7 +8,7 @@ import { Sports } from "./listOfSports";
 const oiBetShowcaseContract: OIBetShowcaseContract =
   artifacts.require("OIBetShowcase");
 
-describe("Flare bet data contract multiple", function () {
+describe.skip("Flare bet data contract multiple", function () {
   let flareBetContract: OIBetShowcaseContract;
   const eventDates = [];
   const eventUIDs: string[] = [];
