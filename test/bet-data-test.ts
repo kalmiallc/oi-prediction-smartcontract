@@ -11,8 +11,7 @@ describe("Flare bet data contract", function () {
   let owner: any;
   let flareBetContract: OIBetShowcaseContract;
   const title = "Test Event";
-  const duration = 3600; // 1 hour
-  const sport = "Soccer";
+  const sport = 5; // Football
   const choiceA = "Team A";
   const choiceB = "Team B";
   const choiceC = "Draw";
@@ -52,7 +51,6 @@ describe("Flare bet data contract", function () {
       const tranData = flareBetContract.createSportEvent(
         title,
         startTime,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -70,7 +68,6 @@ describe("Flare bet data contract", function () {
       const tranDat2 = flareBetContract.createSportEvent(
         title2,
         startTime,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -87,7 +84,6 @@ describe("Flare bet data contract", function () {
       const tranData3 = flareBetContract.createSportEvent(
         title3,
         startTime3,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -137,7 +133,7 @@ describe("Flare bet data contract", function () {
         const voter = owner.address;
         const voteAmount = ethers.parseUnits("10", "ether");
         const choice = 1;
-        const uid = event.uuid;
+        const uid = event.uid;
 
         const tranData = flareBetContract.placeBet(uid, choice, {
           value: voteAmount,

@@ -2,6 +2,8 @@
 import { OIBetShowcaseContract } from "../typechain-types";
 import { ethers } from "hardhat";
 import sampleData from "../scripts/sampleSportEvents.json";
+import crypto from "crypto";
+import { Sports } from "./listOfSports";
 
 const oiBetShowcaseContract: OIBetShowcaseContract =
   artifacts.require("OIBetShowcase");
@@ -9,11 +11,10 @@ const oiBetShowcaseContract: OIBetShowcaseContract =
 describe("Flare bet data contract multiple", function () {
   let flareBetContract: OIBetShowcaseContract;
   const eventDates = [];
-  const eventUIIDs: string[] = [];
+  const eventUIDs: string[] = [];
   this.timeout(4000000);
 
   before(async () => {
-    
     const [signer1] = await ethers.getSigners();
     const balance = await ethers.provider.getBalance(signer1.address);
     console.log("Signer1:", signer1.address);
@@ -25,47 +26,48 @@ describe("Flare bet data contract multiple", function () {
     for (const event of sampleData) {
       const txInst = await flareBetContract.createSportEvent(
         event.match,
-        event.timestamp,
-        event.duration,
-        event.sport,
-        event.team1,
-        event.team2,
-        event.draw,
-        event.oddsTeam1,
-        event.oddsTeam2,
-        event.oddsDraw,
-        ethers.parseUnits(event.stake, "ether")
+        convertStartTime(event.startTime),
+        Object.keys(Sports).indexOf(event.sport),
+        event.choice1,
+        event.choice2,
+        event.choice3,
+        event.initialBets1,
+        event.initialBets2,
+        event.initialBets3,
+        ethers.parseUnits(event.initialPool.toString(), "ether")
       );
 
       const added = await txInst.wait();
       // console.log("Added:" + event.match + " hash: ", added.hash);
       // console.log("Results", added.logs[0].args);
       const startOfDay = Math.floor(
-        event.timestamp - (event.timestamp % 86400)
+        convertStartTime(event.startTime) - (convertStartTime(event.startTime) % 86400)
       );
       eventDates.push(startOfDay);
-      eventUIIDs.push(added.logs[0].args[0]);
+      console.log("Added uuid:", added.logs[0].args[0]);
+      console.log("Added startTime:", new Date(Number(startOfDay) * 1000));
+      eventUIDs.push(added.logs[0].args[0]);
     }
-    console.log("Added uuids length:", eventUIIDs.length);
+    console.log("Added uuids length:", eventUIDs.length);
   });
   it("Should survive multiple bets", async () => {
-    for (let a = 0; a < eventUIIDs.length - 1; a++) {
+    for (let a = 0; a < eventUIDs.length - 1; a++) {
       for (let i = 0; i < 250; i++) {
         //random number between 1 and 100
         const amount = Math.floor(Math.random() * 100) + 1;
 
         const voteAmount = ethers.parseUnits(amount.toString(), "ether");
         // random choice 0 1 2
-        
+
         // weight of the choice
-        const choice = getWeightedChoice([1,7,2]);
+        const choice = getWeightedChoice([1, 7, 2]);
 
-        const uid = eventUIIDs[a];
+        const uid = eventUIDs[a];
 
-        const dataBefore = await flareBetContract.getSportEventFromUUID(uid);
-        if (dataBefore.startTime > Math.floor(Date.now() / 1000)) {
+        const dataBefore = await flareBetContract.getSportEventFromUID(uid);
+        /* if (dataBefore.startTime > Math.floor(Date.now() / 1000)) {
           continue;
-        }
+        } */
         const poolSize = Number(dataBefore.poolAmount) / 10 ** 18;
         const choiceA = Number(dataBefore.choices[0][2]) / 10 ** 18;
         const choiceB = Number(dataBefore.choices[1][2]) / 10 ** 18;
@@ -106,7 +108,6 @@ describe("Flare bet data contract multiple", function () {
   });
 });
 
-
 function getWeightedChoice(weights: number[]) {
   const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
 
@@ -122,4 +123,8 @@ function getWeightedChoice(weights: number[]) {
       return i;
     }
   }
+}
+
+export function convertStartTime(startTime: string) {
+  return new Date(startTime).getTime() / 1000; // Convert startTime to Unix epoch
 }
