@@ -21,12 +21,12 @@ contract OIBetShowcase is Ownable {
         uint32 duration;
         string sport;
         uint256 poolAmount;
-        uint32 winner;
+        uint16 winner;
         Choices[] choices;
     }
 
     struct Choices {
-        uint32 choiceId;
+        uint16 choiceId;
         string choiceName;
         uint256 totalBetsAmount;
         uint256 currentMultiplier;
@@ -40,14 +40,16 @@ contract OIBetShowcase is Ownable {
         uint256 winMultiplier;
         uint256 betTimestamp;
         uint16 betChoice;
+        bool claimed;
     }
 
     mapping(bytes32 => SportEvent) public sportEvents;
     mapping(uint256 => mapping(string => SportEvent[]))
         public sportEventsByDateAndSport;
     mapping(uint256 => Bet[]) public betsByEventStartDate;
+    mapping(uint256 => mapping(address => Bet[])) public betsByDateAndUser;
     mapping(bytes32 => Bet[]) public betsByEvent;
-    mapping(uint256 => Bet[]) public betsById;
+    mapping(uint256 => Bet) public betById;
 
     event SportEventCreated(bytes32 uuid, string title, string sport, uint256 startTime);
     event BetPlaced(
@@ -130,17 +132,17 @@ contract OIBetShowcase is Ownable {
         return sportEvents[uuid];
     }
 
-    //TODO: Check the betting logic
     function placeBet(bytes32 eventUUID, uint16 choice) external payable {
         uint256 amount = msg.value;
         require(amount <= maxBet, "Bet amount exceeds max bet");
         require(amount > 0, "Bet amount must be greater than 0");
+        require(choice > 0 && choice < 4, "Possible choice values are 1,2,3");
 
         SportEvent storage currentEvent = sportEvents[eventUUID];
         require(currentEvent.uuid != 0, "Event does not exist");
         require(
             currentEvent.startTime < block.timestamp,
-            "Event not started yet"
+            "Event already started"
         );
 
         betId++;
@@ -159,17 +161,20 @@ contract OIBetShowcase is Ownable {
             betAmount: amount,
             winMultiplier: multiplier,
             betTimestamp: block.timestamp,
-            betChoice: choice
+            betChoice: choice,
+            claimed: false
         });
 
         // choice amount is multiplied
         uint256 totalChoiceAmount = currentEvent.choices[choice].totalBetsAmount + (amount * multiplier / 1000);
 
         require(
-            totalChoiceAmount  <= currentEvent.poolAmount,
+            totalChoiceAmount <= currentEvent.poolAmount,
             "Total bets amount exceeds pool amount"
         );
         currentEvent.choices[choice].totalBetsAmount = totalChoiceAmount;
+
+        uint256 dayStart = roundTimestampToDay(currentEvent.startTime);
         
         // recalculate choices
         for (uint256 i = 0; i < currentEvent.choices.length; i++) {
@@ -178,28 +183,34 @@ contract OIBetShowcase is Ownable {
                     currentEvent.poolAmount
                 );
                 // handle also events by data and sport mapping 
-                sportEventsByDateAndSport[roundTimestampToDay(currentEvent.startTime)][currentEvent.sport][0].choices[i].currentMultiplier = currentEvent.choices[i].currentMultiplier;
-                sportEventsByDateAndSport[roundTimestampToDay(currentEvent.startTime)][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
+                sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].currentMultiplier = currentEvent.choices[i].currentMultiplier;
+                sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
         }
          
         
-        sportEventsByDateAndSport[roundTimestampToDay(currentEvent.startTime)][currentEvent.sport][0].poolAmount += amount;   
+        sportEventsByDateAndSport[dayStart][currentEvent.sport][0].poolAmount += amount;   
         
-        betsByEventStartDate[roundTimestampToDay(block.timestamp)].push(bet);
+        betsByEventStartDate[dayStart].push(bet);
+        betsByDateAndUser[dayStart][msg.sender].push(bet);
+
         betsByEvent[eventUUID].push(bet);
-        betsById[betId].push(bet);
+        betById[betId] = bet;
 
         emit BetPlaced(betId, eventUUID, msg.sender, amount, choice);
     }
 
-    //TODO: This is just a mockup, implement the logic to settle the bet
     function claimWinnings(uint256 _betId) external {
-        Bet[] storage bets = betsById[_betId];
-        require(bets.length > 0, "Bet does not exist");
-        Bet storage bet = bets[0];
+        Bet storage bet = betById[_betId];
+        SportEvent memory sportEvent = sportEvents[bet.eventUUID];
+        require(sportEvent.uuid != 0, "Event does not exist");
+        require(sportEvent.winner > 0, "Results not drawn");
         require(bet.bettor == msg.sender, "You are not the bettor");
         require(bet.winMultiplier > 0, "Bet has not been settled yet");
 
+        require(sportEvent.winner == bet.betChoice, "Not winner");
+        require(!bet.claimed, "Winnings already claimed");
+
+        bet.claimed = true;
         uint256 winnings = bet.betAmount * bet.winMultiplier;
         payable(msg.sender).transfer(winnings);
 
@@ -212,6 +223,14 @@ contract OIBetShowcase is Ownable {
 
     function getBetsByDate(uint256 date) external view returns (Bet[] memory) {
         return betsByEventStartDate[date];
+    }
+
+    function getBetsByEvent(bytes32 uuid) external view returns (Bet[] memory) {
+        return betsByEvent[uuid];
+    }
+
+    function getBetsByDateAndUser(uint256 date, address user) external view returns (Bet[] memory) {
+        return betsByDateAndUser[date][user];
     }
 
     function calculateAproximateBetReturn(
@@ -266,7 +285,7 @@ contract OIBetShowcase is Ownable {
     function generateUUID(
         string memory title,
         uint256 startTime
-    ) private pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return
             keccak256(
                 abi.encodePacked(title, startTime)
