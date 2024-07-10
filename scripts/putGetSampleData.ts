@@ -1,7 +1,8 @@
 import "@nomicfoundation/hardhat-verify";
 import { ethers } from "hardhat";
 import { OIBetShowcaseContract } from "../typechain-types";
-import sampleData from "./sampleSportEvents.json";
+import crypto from "crypto";
+import { Sports } from "../test/listOfSports";
 
 async function main() {
   const contractAddress = "0x97C72b91F953cC6142ebA598fa376B80fbACA1C2";
@@ -19,8 +20,7 @@ async function main() {
   // );
 
   // await getBetData(4, contractIst);
-
-
+  await getEventByUid("Italy - Brazil", 1720009222, Sports.Football, contractIst);
 }
 main().then(() => process.exit(0));
 
@@ -47,16 +47,14 @@ async function getSportEventsData(
 }
 
 async function placeBet(
-  uuid: string,
+  uid: string,
   amount: number,
   choice: number,
   contractIst: OIBetShowcaseContract
 ) {
-  const txInst = await contractIst.placeBet(
-    uuid,
-    choice,
-    { value: ethers.parseEther(amount.toString()) }
-  );
+  const txInst = await contractIst.placeBet(uid, choice, {
+    value: ethers.parseEther(amount.toString()),
+  });
   const added = await txInst.wait();
   console.log("placed bet" + " hash: ", added.hash);
   console.log("Results", added.logs);
@@ -70,5 +68,27 @@ async function getBetData(id: number, contractIst: OIBetShowcaseContract) {
   console.log("Multiplier", winMultiplier)
   console.log("Approximate win amount", approximateWin);
   
+}
+
+async function getEventByUid(
+  title: string,
+  startTime: Number,
+  sport: Sports,
+  contractIst: OIBetShowcaseContract
+) {
+  const itemsKeccak = createUid(sport, title, startTime);
+
+  const data = await contractIst.getSportEventFromUUID(itemsKeccak);
+  console.log("Data", data);
+}
+export function createUid(sport: Sports, title: string, startTime: Number) {
+  const sportIndex = Object.keys(Sports).indexOf(sport);
+  console.log("Sport index for: ", sport, sportIndex);
+
+  const itemsKeccak = ethers.solidityPackedKeccak256(
+    ['string', 'uint256', 'uint8'],
+    [title, startTime, sportIndex]
+  );
+  return itemsKeccak;
 }
 

@@ -1,4 +1,7 @@
 Coston 1 version:
 https://coston2-explorer.flare.network/address/0xEbc2388AB1Be3A972d6e919B5d13E9cE012E1D00
+<<<<<<< HEAD
 Coston 2 version:
 https://coston2-explorer.flare.network/address/0x7eC34DC6f0F6C3939fbE1D0b1041746596495a60
+=======
+>>>>>>> 0eef24015caf94a3254b6dec2ff61ca27fdb2090

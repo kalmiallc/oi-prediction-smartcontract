@@ -11,8 +11,7 @@ describe("Flare bet data contract", function () {
   let owner: any;
   let flareBetContract: OIBetShowcaseContract;
   const title = "Test Event";
-  const duration = 3600; // 1 hour
-  const sport = "Soccer";
+  const sport = 5; // Football
   const choiceA = "Team A";
   const choiceB = "Team B";
   const choiceC = "Draw";
@@ -22,8 +21,8 @@ describe("Flare bet data contract", function () {
   const initialVotesC = 30;
   const title2 = "Test Event 2";
   const title3 = "Test Event 3";
-  const startTime = Math.floor(Date.now() / 1000); // Current timestamp in seconds
-  const startTime3 = Math.floor(Date.now() + 1000 / 1000); // Current timestamp in seconds
+  const startTime = Math.floor(Date.now() + 4000 / 1000); // Current timestamp in seconds
+  const startTime3 = Math.floor(Date.now() / 1000); // Current timestamp in seconds
   const startOfDay1 = startTime - (startTime % 86400);
   const startOfDay3 = startTime3 - (startTime3 % 86400);
 
@@ -36,23 +35,11 @@ describe("Flare bet data contract", function () {
 
   describe("Retrieving bet events", function () {
     before(async () => {
-      const ownerAddress = owner.address; // Store the owner address in a separate variable
-      // await flareBetContract.grantRole(
-      //   ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
-      //   ownerAddress
-      // );
-
-      // const ownerRole = await flareBetContract.hasRole(
-      //   ethers.encodeBytes32String("DEFAULT_ADMIN_ROLE"),
-      //   ownerAddress
-      // );
-      // expect(ownerRole).to.equal(true);
-
+  
       // Create an event
       const tranData = flareBetContract.createSportEvent(
         title,
         startTime,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -70,7 +57,6 @@ describe("Flare bet data contract", function () {
       const tranDat2 = flareBetContract.createSportEvent(
         title2,
         startTime,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -87,7 +73,6 @@ describe("Flare bet data contract", function () {
       const tranData3 = flareBetContract.createSportEvent(
         title3,
         startTime3,
-        duration,
         sport,
         choiceA,
         choiceB,
@@ -99,7 +84,7 @@ describe("Flare bet data contract", function () {
       );
       await expect(tranData3)
         .to.emit(flareBetContract, "SportEventCreated")
-        .withArgs(anyValue, title3, sport, startTime3);
+        .withArgs(anyValue, title3, sport,  startTime3);
     });
 
     it("Should retrieve events by date and sport", async () => {
@@ -137,7 +122,7 @@ describe("Flare bet data contract", function () {
         const voter = owner.address;
         const voteAmount = ethers.parseUnits("10", "ether");
         const choice = 1;
-        const uid = event.uuid;
+        const uid = event.uid;
 
         const tranData = flareBetContract.placeBet(uid, choice, {
           value: voteAmount,
