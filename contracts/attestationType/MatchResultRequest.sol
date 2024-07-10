@@ -8,30 +8,33 @@ pragma solidity >=0.7.6 <0.9;
 /**
 * Verification logic description:
 * 1. The RequestBody uses four parameters to get the response.
-*   - date: match date (unix timestamp).
+*   - date: match date (unix timestamp without hour - rounded down to day).
 *   - sport: match sport (enum Sports).
 *   - gender: for which gender is the match (0 = male, 1 = female).
 *   - teams: match teams.
 *
 *The ResponseBody returns one parameter in the response:
+*   - timestamp: Unix timestamp of the exact match beginning
 *   - result: Possible return values are 1 = team 1 won, 2 = team 2 won, 3 = draw
 *
 *Verification logic
 *
 *The verification logic has the following sequence:
-*  !!! TODO !!!
-*  !!! TODO !!!
-*  !!! TODO !!!
+*  1. The RequestBody data is used to get the match result from the third party API. The API returns the match result data + timestamp of the match beginning.
+*  2. If match is not finished yet or results are not yet available, third party API returns result: 0. This results in verification failed.
+*  3. If result & timestamp is return, that means that match result is available and can be successfully verified.
+*  4. Note: timestamp field is the sole indicator that the 3rd party result api was actually called, and result was not mocked or manually set.
 *
 ** Example:
 *
 ** Request:
-*  - date: 1720612800
+*  - date: 1720569600
 *  - sport: 5
 *  - gender: 0
 *  - teams: "England:Slovenia"
 *
 ** Response:
+*  - timestamp: 1720612800
 *  - result: 2
 * *  
 * * 
@@ -93,7 +96,7 @@ interface MatchResultRequest {
 
     /**
      * @notice Request body for MatchResultRequest attestation type
-     * @param date date of a match
+     * @param date date of a match (unix timestamp without hour - rounded down to day)
      * @param sport id of a sport from
      *       0 - Basketball,
      *       1 - Basketball3x3,
@@ -118,9 +121,11 @@ interface MatchResultRequest {
 
     /**
      * @notice Response body for MatchResultRequest attestation type.
+     * @param timestamp Unix timestamp of the exact match beginning
      * @param result Possible return values are 0 = no data, 1 = team 1 won, 2 = team 2 won, 3 = draw
      */
     struct ResponseBody {
+        uint256 timestamp;
         uint8 result;
     }
 }
