@@ -13,7 +13,7 @@ pragma solidity >=0.7.6 <0.9;
 *   - gender: for which gender is the match (0 = male, 1 = female).
 *   - teams: match teams.
 *
-*The ResponseBody returns one parameter in the response:
+*The ResponseBody returns two parameters in the response:
 *   - timestamp: Unix timestamp of the exact match beginning
 *   - result: Possible return values are 1 = team 1 won, 2 = team 2 won, 3 = draw
 *
@@ -39,8 +39,6 @@ pragma solidity >=0.7.6 <0.9;
 * *  
 * * 
 * */
-
-
 
 /**
  * @custom:name MatchResultRequest
