@@ -33,7 +33,6 @@ contract OIBetShowcase is Ownable {
         bytes32 uid;
         string title;
         uint256 startTime;
-        uint32 duration;
         Sports sport;
         uint256 poolAmount;
         uint32 winner;
