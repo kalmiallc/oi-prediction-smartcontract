@@ -7,33 +7,14 @@ pragma solidity >=0.7.6 <0.9;
 
 /**
 * Verification logic description:
-* 1. The RequestBody uses three parameters to get the response.
-*   - uid: Unique identifier of a match. It is generated as the Keccak256 hash of the match data.
-*   - requestNumber: Request sequential number. It is used to easily match request and response.
-*   - requestQuery: REST-based query to the API to get the results.
-*   
-*Uid (32 bytes) is a unique identifier of a match. It is generated as the Keccak256 hash of the match data.
-*  The data included in the hash is the following:
-*  1. Match title. This title includes:
-*     1. "Gender" - Whether the match is from "Men" or "Women"
-*     2. "Match group" - Whether the match is from "Group A", "Group B", ... "SemiFinal, Final"
-*     3. "Match teams" - e.g., "Germany vs Japan"
-*  2. Match start date. The date is in the EPOCH format.
-*  3. Match sport. The sport is an enum index defined by the enum of sports.
+* 1. The RequestBody uses four parameters to get the response.
+*   - date: match date (unix timestamp).
+*   - sport: match sport (enum Sports).
+*   - gender: for which gender is the match (0 = male, 1 = female).
+*   - teams: match teams.
 *
-*The same uid logic is used by the APIs providing the match data. The data from the API is used to store the match data on the blockchain.
-*This logic provides the same unique identifier for the match data in both the blockchain and the API.
-*
-*The ResponseBody uses four parameters to get the response:
+*The ResponseBody returns one parameter in the response:
 *   - result: Possible return values are 1 = team 1 won, 2 = team 2 won, 3 = draw
-*   - requestNumber: Request sequential number. It is used to easily match request and response.
-*   - resultHash: Hash of the result
-*   - uid: Unique identifier of a match. The same uid as used in the request.
-*
-*The result hash is generated with the Keccak256 hash of the result data. The data included in the hash is the following:
-*  1. Match uid: Unique identifier of a match. The same uid as used in the request.
-*  2. Match request number: Request sequential number. It is used to easily match request and response.
-*  3. Match result: Possible return values are 0 = no data, 1 = team 1 won, 2 = team 2 won, 3 = draw
 *
 *Verification logic
 *
@@ -47,25 +28,16 @@ pragma solidity >=0.7.6 <0.9;
 *  6. If all validations are OK, the result is returned. This result is considered final.
 *  7. When validations against multiple API's are called. The result is considered final when the data from all the API's is the same.
 *
-*
-*Response data is a direct representation of what the API returns. The API will return:
-*   - uid: Unique identifier of a match. The same uid as used in the request.
-*   - result: Possible return values are 0 = no data, 1 = team 1 won, 2 = team 2 won, 3 = draw
-*   - requestNumber: Request sequential number. It is used to easily match request and response.
-*   - resultHash: Hash of the result
-*
 ** Example:
 *
 ** Request:
-*  - uid: 0x123
-*  - requestNumber: 1
-*  - requestQuery: "https://api.com/match/0x123"
+*  - date: 1720612800
+*  - sport: 5
+*  - gender: 0
+*  - teams: "England:Slovenia"
 *
 ** Response:
-*  - uid: 0x123
-*  - result: 1
-*  - requestNumber: 1
-*  - resultHash: 0x456
+*  - result: 2
 * *  
 * * 
 * */
@@ -77,7 +49,7 @@ pragma solidity >=0.7.6 <0.9;
  * @custom:id 0x07
  * @custom:supported WEB
  * @author Kalmia
- * @notice Returns the result for specified game UUID.
+ * @notice Returns the result for specified game UID.
  * @custom:verification Result is returned from the oi-flare-proxy API.
  * @custom:lut `0xffffffffffffffff` ($2^{64}-1$ in hex)
  */
@@ -126,26 +98,34 @@ interface MatchResultRequest {
 
     /**
      * @notice Request body for MatchResultRequest attestation type
-     * @param uid unique indentifier of a match
-     * @param requestNumber request sequential number
-     * @param requestQuery API endpoint query to get the match result
+     * @param date date of a match
+     * @param sport id of a sport from
+     *       0 - Basketball,
+     *       1 - Basketball3x3,
+     *       2 - Badminton,
+     *       3 - BeachVolley,
+     *       4 - FieldHockey,
+     *       5 - Football,
+     *       6 - Handball,
+     *       7 - TableTennis,
+     *       8 - Tennis,
+     *       9 - Volleyball,
+     *       10 - WaterPolo
+     * @param gender 0 - male, 1 - female
+     * @param teams teams playing the game, divided with comma (example: England,Slovenia)
      */
     struct RequestBody {
-        bytes32 uid;
-        uint256 requestNumber;
-        string requestQuery;
+        uint256 date;
+        uint32 sport;
+        uint8 gender;
+        string teams;
     }
 
     /**
      * @notice Response body for MatchResultRequest attestation type.
      * @param result Possible return values are 0 = no data, 1 = team 1 won, 2 = team 2 won, 3 = draw
-     * @param requestNumber request sequential number
-     * @param resultHash hash of the result
      */
     struct ResponseBody {
-        bytes32 uid;
         uint8 result;
-        uint256 requestNumber;
-        bytes32 resultHash;
     }
 }
