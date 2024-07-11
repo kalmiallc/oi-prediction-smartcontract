@@ -188,13 +188,13 @@ contract OIBetShowcase is Ownable {
         
         // recalculate choices
         for (uint256 i = 0; i < currentEvent.choices.length; i++) {
-                currentEvent.choices[i].currentMultiplier = calculateMultiplier(
-                    currentEvent.choices[i].totalBetsAmount,
-                    currentEvent.poolAmount
-                );
-                // handle also events by data and sport mapping 
-                sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].currentMultiplier = currentEvent.choices[i].currentMultiplier;
-                sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
+            currentEvent.choices[i].currentMultiplier = calculateMultiplier(
+                currentEvent.choices[i].totalBetsAmount,
+                currentEvent.poolAmount
+            );
+            // handle also events by data and sport mapping 
+            sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].currentMultiplier = currentEvent.choices[i].currentMultiplier;
+            sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
         }
          
         
