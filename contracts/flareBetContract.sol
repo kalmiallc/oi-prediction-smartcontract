@@ -221,7 +221,7 @@ contract OIBetShowcase is Ownable {
         require(!bet.claimed, "Winnings already claimed");
 
         bet.claimed = true;
-        uint256 winnings = bet.betAmount * bet.winMultiplier;
+        uint256 winnings = bet.betAmount * bet.winMultiplier / MULTIPLIER_FACTOR;
         payable(msg.sender).transfer(winnings);
 
         emit BetSettled(

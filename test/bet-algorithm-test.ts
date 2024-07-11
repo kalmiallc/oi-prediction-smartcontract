@@ -28,12 +28,8 @@ describe.skip("Flare bet data contract multiple", function () {
         event.match,
         convertStartTime(event.startTime),
         Object.keys(Sports).indexOf(event.sport),
-        event.choice1,
-        event.choice2,
-        event.choice3,
-        event.initialBets1,
-        event.initialBets2,
-        event.initialBets3,
+        [event.choice1, event.choice2, event.choice3],
+        [event.initialBets1, event.initialBets2, event.initialBets3],
         ethers.parseUnits(event.initialPool.toString(), "ether")
       );
 
