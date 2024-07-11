@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract OIBetShowcase is Ownable {
     uint256 public constant DAY = 86400;
+    uint256 public constant MULTIPLIER_FACTOR = 1000;
 
     // max bet is 100 songbird / flare
     uint256 private maxBet;
@@ -79,12 +80,8 @@ contract OIBetShowcase is Ownable {
         string memory title,
         uint256 startTime,
         Sports sport,
-        string memory choiceA,
-        string memory choiceB,
-        string memory choiceC,
-        uint32 initialVotesA,
-        uint32 initialVotesB,
-        uint32 initialVotesC,
+        string[] memory choices,
+        uint32[] memory initialVotes,
         uint256 initialPool
     ) external onlyOwner {
         bytes32 uid = generateUID(title, startTime, sport);
@@ -98,67 +95,40 @@ contract OIBetShowcase is Ownable {
         ev.startTime = startTime;
         ev.sport = sport;
 
+        uint256 sumVotes = initialVotes[0] + initialVotes[1] + initialVotes[2];
+
+        uint256 initialBetAmountA = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[0]);
+        uint256 initialBetAmountB = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[1]);
+        uint256 initialBetAmountC = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[2]);
+
         ev.choices.push(
             Choices({
                 choiceId: 1,
-                choiceName: choiceA,
-                totalBetsAmount: calculateInitialBetAmount(
-                    initialPool,
-                    initialVotesA + initialVotesB + initialVotesC,
-                    initialVotesA
-                ),
-                currentMultiplier: calculateMultiplier(
-                    calculateInitialBetAmount(
-                        initialPool,
-                        initialVotesA + initialVotesB + initialVotesC,
-                        initialVotesA
-                    ),
-                    initialPool
-                )
+                choiceName: choices[0],
+                totalBetsAmount: initialBetAmountA,
+                currentMultiplier: calculateMultiplier(initialBetAmountA, initialPool)
             })
         );
         ev.choices.push(
             Choices({
                 choiceId: 2,
-                choiceName: choiceB,
-                totalBetsAmount: calculateInitialBetAmount(
-                    initialPool,
-                    initialVotesA + initialVotesB + initialVotesC,
-                    initialVotesB
-                ),
-                currentMultiplier: calculateMultiplier(
-                    calculateInitialBetAmount(
-                        initialPool,
-                        initialVotesA + initialVotesB + initialVotesC,
-                        initialVotesB
-                    ),
-                    initialPool
-                )
+                choiceName: choices[1],
+                totalBetsAmount: initialBetAmountB,
+                currentMultiplier: calculateMultiplier(initialBetAmountB, initialPool)
             })
         );
         ev.choices.push(
             Choices({
                 choiceId: 3,
-                choiceName: choiceC,
-                totalBetsAmount: calculateInitialBetAmount(
-                    initialPool,
-                    initialVotesA + initialVotesB + initialVotesC,
-                    initialVotesC
-                ),
-                currentMultiplier: calculateMultiplier(
-                    calculateInitialBetAmount(
-                        initialPool,
-                        initialVotesA + initialVotesB + initialVotesC,
-                        initialVotesC
-                    ),
-                    initialPool
-                )
+                choiceName: choices[2],
+                totalBetsAmount: initialBetAmountC,
+                currentMultiplier: calculateMultiplier(initialBetAmountC, initialPool)
             })
         );
 
-        sportEventsByDateAndSport[roundTimestampToDay(startTime)][sport].push(ev);
+        sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev);
 
-        emit SportEventCreated(uid, title, sport, ev.startTime);
+        emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
     }
 
     function getSportEventsByDateAndSport(
@@ -206,7 +176,7 @@ contract OIBetShowcase is Ownable {
 
         // choice amount is multiplied
         uint256 totalChoiceAmount = currentEvent.choices[choice].totalBetsAmount +
-            ((amount * multiplier) / 1000);
+            (amount * multiplier / MULTIPLIER_FACTOR);
 
         require(
             totalChoiceAmount <= currentEvent.poolAmount,
@@ -286,31 +256,26 @@ contract OIBetShowcase is Ownable {
             amount;
         uint256 totalPoolAmount = currentEvent.poolAmount;
         uint256 multiplier = calculateMultiplier(totalChoiceAmount, totalPoolAmount);
-        return amount * multiplier;
+        return amount * multiplier / MULTIPLIER_FACTOR;
     }
     
     function roundTimestampToDay(uint256 timestamp) private pure returns (uint256) {
         return timestamp - (timestamp % DAY);
     }
 
-    //TODO: Need to test and check if the logic is correct
     function calculateMultiplier(
         uint256 totalChoiceAmount,
         uint256 totalPoolAmount
     ) private pure returns (uint256) {
-        uint8 feePercentage = 1;
         uint8 adjustmentFactor = 101;
-        uint256 totalChoiceAmountWithFee = totalChoiceAmount +
-            ((feePercentage * totalChoiceAmount) / 100);
         require(totalPoolAmount > 0, "Pool amount must be greater than 0");
         require(totalChoiceAmount > 0, "Choice amount must be greater than 0");
         require(
-            totalPoolAmount >= totalChoiceAmountWithFee,
+            totalPoolAmount >= totalChoiceAmount,
             "Pool amount must be greater than choice amount"
         );
         // the multipiler is a factor of 1000
-        uint256 multiplier = ((((totalPoolAmount) * 100000) / adjustmentFactor) /
-            (totalChoiceAmountWithFee));
+        uint256 multiplier = totalPoolAmount * MULTIPLIER_FACTOR * 100 / adjustmentFactor / totalChoiceAmount;
         // new total choice amount cannot be bigger than the total pool amount
         return multiplier;
     }
@@ -320,7 +285,7 @@ contract OIBetShowcase is Ownable {
         uint256 sumOfVotes,
         uint256 choiceVotes
     ) private pure returns (uint256) {
-        return (((initialPool) / sumOfVotes) * choiceVotes);
+        return initialPool / sumOfVotes * choiceVotes;
     }
 
     function generateUID(
