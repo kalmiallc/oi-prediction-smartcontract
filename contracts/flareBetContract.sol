@@ -93,7 +93,7 @@ contract OIBetShowcase is Ownable {
         ev.uid = uid;
         ev.title = title;
 
-        // // devide the pool amount by the number of choices
+        // divide the pool amount by the number of choices
         ev.poolAmount = initialPool;
         ev.startTime = startTime;
         ev.sport = sport;
