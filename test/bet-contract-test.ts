@@ -24,7 +24,8 @@ describe("Flare bet contract", function () {
         Object.keys(Sports).indexOf(event.sport),
         [event.choice1, event.choice2, event.choice3],
         [event.initialBets1, event.initialBets2, event.initialBets3],
-        ethers.parseUnits(event.initialPool.toString(), "ether")
+        ethers.parseUnits(event.initialPool.toString(), "ether"),
+        {value: ethers.parseUnits(event.initialPool.toString(), "ether")}
       );
       await txInst.wait();  
     }
@@ -60,23 +61,22 @@ describe("Flare bet contract", function () {
     );
 
     let betAmount = ethers.parseUnits("5", "ether");
-    let choiceId = 0;
     let tx;
     let result;
     let sportEvent;
 
-    result = await BC.calculateAproximateBetReturn(betAmount, choiceId, uid);
+    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("13.56", "ether"));
 
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    tx = await BC.placeBet(uid, 0, {value: betAmount,});
     await tx.wait();
 
-    result = await BC.calculateAproximateBetReturn(betAmount, choiceId, uid);
+    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("10.49", "ether"));
 
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    tx = await BC.placeBet(uid, 0, {value: betAmount,});
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
@@ -87,8 +87,7 @@ describe("Flare bet contract", function () {
     expect(result).to.equal(ethers.parseUnits("14.85", "ether"));
 
     // Bet and decrease weight on choiceId = 1
-    choiceId = 1;
-    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    tx = await BC.placeBet(uid, 1, {value: betAmount,});
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
@@ -146,6 +145,17 @@ describe("Flare bet contract", function () {
     await txWin.wait();
 
     await expect(BC.connect(account1).claimWinnings(1)).to.be.revertedWith(`You are not the bettor`);
+
+    // BetId 3 is not a winner
+    let claimTx;
+    for(let i = 1; i <= lastBetId; i++) {
+      if (i == 3) {
+        await expect(BC.claimWinnings(i)).to.be.revertedWith(`Not winner`);
+      } else {
+        claimTx = await BC.claimWinnings(i);
+        await claimTx.wait();
+      }
+    }
     
   });
 });

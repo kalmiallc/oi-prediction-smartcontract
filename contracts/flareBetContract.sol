@@ -83,9 +83,10 @@ contract OIBetShowcase is Ownable {
         string[] memory choices,
         uint32[] memory initialVotes,
         uint256 initialPool
-    ) external onlyOwner {
+    ) external payable onlyOwner {
         bytes32 uid = generateUID(title, startTime, sport);
         require(sportEvents[uid].uid == 0, "Event already exists");
+        require(msg.value == initialPool, "msg.value != initialPool");
         SportEvent storage ev = sportEvents[uid];
         ev.uid = uid;
         ev.title = title;
