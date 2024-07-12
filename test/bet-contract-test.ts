@@ -68,15 +68,17 @@ describe("Flare bet contract", function () {
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("13.56", "ether"));
 
+    await expect(BC.placeBet(uid, 4, {value: betAmount})).to.be.revertedWith(`Invalid choice`);
+
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, 0, {value: betAmount,});
+    tx = await BC.placeBet(uid, 0, {value: betAmount});
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("10.49", "ether"));
 
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, 0, {value: betAmount,});
+    tx = await BC.placeBet(uid, 0, {value: betAmount});
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
@@ -87,7 +89,7 @@ describe("Flare bet contract", function () {
     expect(result).to.equal(ethers.parseUnits("14.85", "ether"));
 
     // Bet and decrease weight on choiceId = 1
-    tx = await BC.placeBet(uid, 1, {value: betAmount,});
+    tx = await BC.placeBet(uid, 1, {value: betAmount});
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);

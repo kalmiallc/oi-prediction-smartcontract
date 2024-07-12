@@ -87,6 +87,14 @@ contract OIBetShowcase is Ownable {
         bytes32 uid = generateUID(title, startTime, sport);
         require(sportEvents[uid].uid == 0, "Event already exists");
         require(msg.value == initialPool, "msg.value != initialPool");
+        require(
+            choices.length == initialVotes.length, 
+            "choices & initialVotes length mismatch"
+        );
+        require(
+            choices.length == 2 || choices.length == 3,
+            "choices length has to be 2 or 3"
+        );
         SportEvent storage ev = sportEvents[uid];
         ev.uid = uid;
         ev.title = title;
@@ -96,36 +104,23 @@ contract OIBetShowcase is Ownable {
         ev.startTime = startTime;
         ev.sport = sport;
 
-        uint256 sumVotes = initialVotes[0] + initialVotes[1] + initialVotes[2];
+        uint256 sumVotes;
+        for (uint256 i = 0; i < initialVotes.length; i++) {
+            sumVotes += initialVotes[i];
+        }
 
-        uint256 initialBetAmountA = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[0]);
-        uint256 initialBetAmountB = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[1]);
-        uint256 initialBetAmountC = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[2]);
-
-        ev.choices.push(
-            Choices({
-                choiceId: 1,
-                choiceName: choices[0],
-                totalBetsAmount: initialBetAmountA,
-                currentMultiplier: calculateMultiplier(initialBetAmountA, initialPool)
-            })
-        );
-        ev.choices.push(
-            Choices({
-                choiceId: 2,
-                choiceName: choices[1],
-                totalBetsAmount: initialBetAmountB,
-                currentMultiplier: calculateMultiplier(initialBetAmountB, initialPool)
-            })
-        );
-        ev.choices.push(
-            Choices({
-                choiceId: 3,
-                choiceName: choices[2],
-                totalBetsAmount: initialBetAmountC,
-                currentMultiplier: calculateMultiplier(initialBetAmountC, initialPool)
-            })
-        );
+        uint256 initialBetAmount;
+        for (uint256 i = 0; i < choices.length; i++) {
+            initialBetAmount = calculateInitialBetAmount(initialPool, sumVotes, initialVotes[i]);
+            ev.choices.push(
+                Choices({
+                    choiceId: uint16(i + 1),
+                    choiceName: choices[i],
+                    totalBetsAmount: initialBetAmount,
+                    currentMultiplier: calculateMultiplier(initialBetAmount, initialPool)
+                })
+            );
+        }
 
         sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev);
 
@@ -153,6 +148,10 @@ contract OIBetShowcase is Ownable {
         require(
             currentEvent.startTime > block.timestamp,
             "Event already started"
+        );
+        require(
+            choice < currentEvent.choices.length,
+            "Invalid choice"
         );
 
         betId++;
@@ -243,6 +242,15 @@ contract OIBetShowcase is Ownable {
 
     function getEventChoiceData(bytes32 uuid, uint32 _choice) external view returns (Choices memory) {
         return sportEvents[uuid].choices[_choice];
+    }
+
+    function getEvents(bytes32[] memory uids) external view returns (SportEvent[] memory) {
+        SportEvent[] memory events = new SportEvent[](uids.length);
+        
+        for (uint256 i = 0; i < uids.length; i++) {
+            events[i] = sportEvents[uids[i]];
+        }
+        return events;
     }
 
     function getBetsByDate(uint256 date) external view returns (Bet[] memory) {
