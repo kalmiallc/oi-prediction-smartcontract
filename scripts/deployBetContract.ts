@@ -1,11 +1,7 @@
 import "@nomicfoundation/hardhat-verify";
 import { artifacts, ethers, run } from 'hardhat';
-import { SimpleFtsoExampleContract } from '../typechain-types';
-const SimpleFtsoExample: SimpleFtsoExampleContract = artifacts.require('SimpleFtsoExample');
-
 
 async function main() {
-
 
     const args: any[] = []
     
