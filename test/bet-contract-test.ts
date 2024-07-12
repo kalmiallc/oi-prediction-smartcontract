@@ -160,6 +160,80 @@ describe("Flare bet contract", function () {
     }
     
   });
+
+  it("Check bets view functions", async () => {
+    const uid_event_0 = await BC.generateUID(
+      EVENTS[0].match, 
+      convertStartTime(EVENTS[0].startTime),
+      Object.keys(Sports).indexOf(EVENTS[0].sport)
+    );
+
+    const uid_event_1 = await BC.generateUID(
+      EVENTS[1].match, 
+      convertStartTime(EVENTS[1].startTime),
+      Object.keys(Sports).indexOf(EVENTS[1].sport)
+    );
+
+    const betAmount = ethers.parseUnits("5", "ether");
+
+    // Place 10 bets with owner to EVENT 0
+    for(let i = 0; i < 10; i++) {
+      const tx = await BC.placeBet(uid_event_0, 0, {value: betAmount});
+      await tx.wait();
+    }
+
+    // Place 20 bets with account1 to EVENT 0
+    for(let i = 0; i < 20; i++) {
+      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, {value: betAmount});
+      await tx.wait();
+    }
+
+    // Place 5 bets with owner to EVENT 1
+    for(let i = 0; i < 5; i++) {
+      const tx = await BC.placeBet(uid_event_1, 0, {value: betAmount});
+      await tx.wait();
+    }
+
+    // Place 15 bets with account1 to EVENT 1
+    for(let i = 0; i < 15; i++) {
+      const tx = await BC.connect(account1).placeBet(uid_event_1, 1, {value: betAmount});
+      await tx.wait();
+    }
+
+    const date_event_0 = convertStartTime(EVENTS[0].date);
+    const date_event_1 = convertStartTime(EVENTS[1].date);
+    let betRes;
+
+    // EVENT 0 start
+    // EVENT 0 start
+    // EVENT 0 start
+
+    // Check result of getBetsByDateAndUser
+    betRes = await BC.getBetsByDateAndUser(date_event_0, owner.address);
+    expect(betRes.length).to.equal(10);
+
+    betRes = await BC.getBetsByDateAndUser(date_event_0, account1.address);
+    expect(betRes.length).to.equal(20);
+
+    // Check result of getBetsByDate
+    betRes = await BC.getBetsByDate(date_event_0);
+    expect(betRes.length).to.equal(30);
+
+    // EVENT 1 start
+    // EVENT 1 start
+    // EVENT 1 start
+
+    // Check result of getBetsByDateAndUser
+    betRes = await BC.getBetsByDateAndUser(date_event_1, owner.address);
+    expect(betRes.length).to.equal(5);
+
+    betRes = await BC.getBetsByDateAndUser(date_event_1, account1.address);
+    expect(betRes.length).to.equal(15);
+
+    // Check result of getBetsByDate
+    betRes = await BC.getBetsByDate(date_event_1);
+    expect(betRes.length).to.equal(20);
+  });
 });
 
 export function convertStartTime(startTime: string) {
@@ -187,9 +261,9 @@ function getEvents() {
       "initialPool": "100"
     },
     {
-      "date": "2024-07-27",
+      "date": "2024-07-28",
       "time": "13:30",
-      "startTime": "2024-07-27T13:30:00Z",
+      "startTime": "2024-07-28T13:30:00Z",
       "gender": "Men",
       "group": "B",
       "teams": ["Germany", "Japan"],
