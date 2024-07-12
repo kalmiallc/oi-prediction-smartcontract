@@ -233,17 +233,16 @@ contract OIBetShowcase is Ownable {
         );
     }
 
-    // ONLY FOR DEBUGGING !!!
-    // ONLY FOR DEBUGGING !!!
-    // ONLY FOR DEBUGGING !!!
-    function setWinner(bytes32 uid, uint16 choice) external onlyOwner {
-        sportEvents[uid].winner = choice;
-    }
-
+    /**
+     * @dev Events specific choice data
+     */
     function getEventChoiceData(bytes32 uuid, uint32 _choice) external view returns (Choices memory) {
         return sportEvents[uuid].choices[_choice];
     }
 
+    /**
+     * @dev Events by uids
+     */
     function getEvents(bytes32[] memory uids) external view returns (SportEvent[] memory) {
         SportEvent[] memory events = new SportEvent[](uids.length);
         
@@ -253,18 +252,56 @@ contract OIBetShowcase is Ownable {
         return events;
     }
 
-    function getBetsByDate(uint256 date) external view returns (Bet[] memory) {
-        return betsByEventStartDate[date];
-    }
-
+    /**
+     * @dev Bets by event
+     */
     function getBetsByEvent(bytes32 uuid) external view returns (Bet[] memory) {
         return betsByEvent[uuid];
     }
 
-    function getBetsByDateAndUser(uint256 date, address user) external view returns (Bet[] memory) {
-        return betsByDateAndUser[date][user];
+    /**
+     * @dev Bets by date
+     */
+    function getBetsByDateFromTo(uint256 date, uint256 from, uint256 to) public view returns (Bet[] memory) {
+        uint256 cnt = to - from;
+        Bet[] memory bets = new Bet[](cnt);
+        for (uint256 i = 0; i < cnt; i++) {
+            bets[i] = betsByEventStartDate[date][from + i];
+        }
+        return bets;
     }
 
+    function getBetsByDate(uint256 date) external view returns (Bet[] memory) {
+        return getBetsByDateFromTo(date, 0, betsByEventStartDate[date].length);
+    }
+
+    function betsByEventStartDateLength(uint256 date) external view returns (uint256) {
+        return betsByEventStartDate[date].length;
+    }
+
+    /**
+     * @dev Bets by date and user
+     */
+    function getBetsByDateAndUserFromTo(uint256 date, address user, uint256 from, uint256 to) public view returns (Bet[] memory) {
+        uint256 cnt = to - from;
+        Bet[] memory bets = new Bet[](cnt);
+        for (uint256 i = 0; i < cnt; i++) {
+            bets[i] = betsByDateAndUser[date][user][from + i];
+        }
+        return bets;
+    }
+
+    function getBetsByDateAndUser(uint256 date, address user) external view returns (Bet[] memory) {
+        return getBetsByDateAndUserFromTo(date, user, 0, betsByDateAndUser[date][user].length);
+    }
+
+    function betsByDateAndUserLength(uint256 date, address user) external view returns (uint256) {
+        return betsByDateAndUser[date][user].length;
+    }
+
+    /**
+     * @dev Calculate approximate bet return
+     */
     function calculateAproximateBetReturn(
         uint256 amount,
         uint32 choiceId,
@@ -328,5 +365,12 @@ contract OIBetShowcase is Ownable {
         bytes32 resultHash
     ) public pure returns (bool) {
         return resultHash == keccak256(abi.encodePacked(uid, requestNumber, result));
+    }
+
+    // ONLY FOR DEBUGGING !!!
+    // ONLY FOR DEBUGGING !!!
+    // ONLY FOR DEBUGGING !!!
+    function setWinner(bytes32 uid, uint16 choice) external onlyOwner {
+        sportEvents[uid].winner = choice;
     }
 }
