@@ -49,117 +49,106 @@ describe("Flare bet contract", function () {
     expect(sportEvent[5]).to.equal(0);
   });
 
-  // before(async () => {
-    
-  //   const [signer1] = await ethers.getSigners();
-  //   const balance = await ethers.provider.getBalance(signer1.address);
-  //   console.log("Signer1:", signer1.address);
-  //   console.log("Balance:", balance.toString());
+  it("Check expected return", async () => {
+    const event0 = EVENTS[0];
+    const startTime = convertStartTime(event0.startTime);
+    const sportId = Object.keys(Sports).indexOf(event0.sport);
+    const uid = await BC.generateUID(
+      event0.match, 
+      startTime,
+      sportId
+    );
 
-  //   flareBetContract = await ethers.deployContract("OIBetShowcase", []);
+    let betAmount = ethers.parseUnits("5", "ether");
+    let choiceId = 0;
+    let tx;
+    let result;
+    let sportEvent;
 
-  //   for (const event of sampleData) {
-  //     const txInst = await flareBetContract.createSportEvent(
-  //       event.match,
-  //       event.timestamp,
-  //       event.duration,
-  //       event.sport,
-  //       event.team1,
-  //       event.team2,
-  //       event.draw,
-  //       event.oddsTeam1,
-  //       event.oddsTeam2,
-  //       event.oddsDraw,
-  //       ethers.parseUnits(event.stake, "ether")
-  //     );
+    result = await BC.calculateAproximateBetReturn(betAmount, choiceId, uid);
+    expect(result).to.equal(ethers.parseUnits("13.56", "ether"));
 
-  //     const added = await txInst.wait();
-  //     // console.log("Added:" + event.match + " hash: ", added.hash);
-  //     // console.log("Results", added.logs[0].args);
-  //     const startOfDay = Math.floor(
-  //       event.timestamp - (event.timestamp % 86400)
-  //     );
-  //     eventDates.push(startOfDay);
-  //     eventUIIDs.push(added.logs[0].args[0]);
-  //   }
-  //   console.log("Added uuids length:", eventUIIDs.length);
-  // });
-  
-  // it("Should survive multiple bets", async () => {
-  //   for (let a = 0; a < eventUIIDs.length - 1; a++) {
-  //     for (let i = 0; i < 250; i++) {
-  //       //random number between 1 and 100
-  //       const amount = Math.floor(Math.random() * 100) + 1;
+    // Bet and decrease weight on choiceId = 0
+    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    await tx.wait();
 
-  //       const voteAmount = ethers.parseUnits(amount.toString(), "ether");
-  //       // random choice 0 1 2
-        
-  //       // weight of the choice
-  //       const choice = getWeightedChoice([1,7,2]);
+    result = await BC.calculateAproximateBetReturn(betAmount, choiceId, uid);
+    expect(result).to.equal(ethers.parseUnits("10.49", "ether"));
 
-  //       const uid = eventUIIDs[a];
+    // Bet and decrease weight on choiceId = 0
+    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    await tx.wait();
 
-  //       const dataBefore = await flareBetContract.getSportEventFromUUID(uid);
-  //       if (dataBefore.startTime > Math.floor(Date.now() / 1000)) {
-  //         continue;
-  //       }
-  //       const poolSize = Number(dataBefore.poolAmount) / 10 ** 18;
-  //       const choiceA = Number(dataBefore.choices[0][2]) / 10 ** 18;
-  //       const choiceB = Number(dataBefore.choices[1][2]) / 10 ** 18;
-  //       const choiceC = Number(dataBefore.choices[2][2]) / 10 ** 18;
-  //       const factorA = Number(dataBefore.choices[0][3]) / 1000;
-  //       const factorB = Number(dataBefore.choices[1][3]) / 1000;
-  //       const factorC = Number(dataBefore.choices[2][3]) / 1000;
-  //       console.log("Sport Event - before, poolSize:", poolSize);
-  //       console.log("Sport Event - before, choice A:", choiceA);
-  //       console.log("Sport Event - before, choice B:", choiceB);
-  //       console.log("Sport Event - before, choice C:", choiceC);
-  //       console.log("Sport Event - before, factor A:", factorA);
-  //       console.log("Sport Event - before, factor B:", factorB);
-  //       console.log("Sport Event - before, factor C:", factorC);
+    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
+    expect(result).to.equal(ethers.parseUnits("9.125", "ether"));
+    result = await BC.calculateAproximateBetReturn(betAmount, 1, uid);
+    expect(result).to.equal(ethers.parseUnits("14.85", "ether"));
+    result = await BC.calculateAproximateBetReturn(betAmount, 2, uid);
+    expect(result).to.equal(ethers.parseUnits("14.85", "ether"));
 
-  //       expect(poolSize).to.be.greaterThan(0);
-  //       expect(poolSize).to.be.greaterThan(choiceA);
-  //       expect(poolSize).to.be.greaterThan(choiceB);
-  //       expect(poolSize).to.be.greaterThan(choiceC);
+    // Bet and decrease weight on choiceId = 1
+    choiceId = 1;
+    tx = await BC.placeBet(uid, choiceId, {value: betAmount,});
+    await tx.wait();
 
-  //       const tranData = await flareBetContract.placeBet(uid, choice, {
-  //         value: voteAmount,
-  //       });
+    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
+    expect(result).to.equal(ethers.parseUnits("9.52", "ether"));
+    result = await BC.calculateAproximateBetReturn(betAmount, 1, uid);
+    expect(result).to.equal(ethers.parseUnits("11.17", "ether"));
+    result = await BC.calculateAproximateBetReturn(betAmount, 2, uid);
+    expect(result).to.equal(ethers.parseUnits("15.495", "ether"));
 
-  //       const added = await tranData.wait();
-  //       const args = added.logs[0].args;
-  //       await ethers.provider.send("hardhat_setBalance", [
-  //         args[2].toString(),
-  //         "0x1000000000000000000000000000000000000",
-  //       ]);
-  //       console.log(
-  //         `Bet ${args[0]} placed on ${uid} for ${
-  //           Number(args[3]) / 10 ** 18
-  //         } on choice ${args[4]}`
-  //       );
-  //     }
-  //   }
-  // });
-});
+    // Get event data
+    // sportEvent = await BC.sportEvents(uid);
+    // console.log(ethers.formatUnits(sportEvent[4], "ether"));
 
+    let choiceData;
+    // choiceData = await BC.getEventChoiceData(uid, 0);
+    // console.log(ethers.formatUnits(choiceData[2], "ether"));
 
-function getWeightedChoice(weights: number[]) {
-  const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
+    // choiceData = await BC.getEventChoiceData(uid, 1);
+    // console.log(ethers.formatUnits(choiceData[2], "ether"));
 
-  // Generate a random number in the range of 0 to totalWeight
-  let randomNum = Math.random() * totalWeight;
+    // choiceData = await BC.getEventChoiceData(uid, 2);
+    // console.log(ethers.formatUnits(choiceData[2], "ether"));
 
-  for (let i = 0; i < weights.length; i++) {
-    // Subtract the weight of choice i from randomNum
-    randomNum -= weights[i];
-
-    // If randomNum falls below 0, select choice i
-    if (randomNum < 0) {
-      return i;
+    // Place another 10 bets on choice 0
+    for(let i = 0; i < 10; i++) {
+      tx = await BC.placeBet(uid, 0, {value: betAmount});
+      await tx.wait();
     }
-  }
-}
+
+    // result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
+    // console.log(ethers.formatUnits(result, "ether"));
+
+    // choiceData = await BC.getEventChoiceData(uid, 0);
+    // console.log(ethers.formatUnits(choiceData[2], "ether"));
+
+    // sportEvent = await BC.sportEvents(uid);
+    // console.log(ethers.formatUnits(sportEvent[4], "ether"));
+
+    betAmount = ethers.parseUnits("40", "ether");
+
+    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
+    // console.log(ethers.formatUnits(result, "ether"));
+
+    tx = await BC.placeBet(uid, 0, {value: betAmount});
+    await tx.wait();
+
+    // Try claiming before result drawn
+    const lastBetId = await BC.betId();
+
+    await expect(BC.claimWinnings(666)).to.be.revertedWith(`Invalid betId`);
+    await expect(BC.claimWinnings(1)).to.be.revertedWith(`Result not drawn`);
+
+    // Manually set winner
+    const txWin = await BC.setWinner(uid, 1);
+    await txWin.wait();
+
+    await expect(BC.connect(account1).claimWinnings(1)).to.be.revertedWith(`You are not the bettor`);
+    
+  });
+});
 
 export function convertStartTime(startTime: string) {
   return new Date(startTime).getTime() / 1000; // Convert startTime to Unix epoch
@@ -180,10 +169,10 @@ function getEvents() {
       "choice1": "France",
       "choice2": "Germany",
       "choice3": "Draw",
-      "initialBets1": 4,
-      "initialBets2": 12,
-      "initialBets3": 25,
-      "initialPool": "800"
+      "initialBets1": 10,
+      "initialBets2": 10,
+      "initialBets3": 10,
+      "initialPool": "100"
     },
     {
       "date": "2024-07-27",

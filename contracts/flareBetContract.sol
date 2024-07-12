@@ -10,7 +10,7 @@ contract OIBetShowcase is Ownable {
 
     // max bet is 100 songbird / flare
     uint256 private maxBet;
-    uint256 private betId = 0;
+    uint256 public betId = 0;
 
     constructor() {
         maxBet = 100 ether;
@@ -197,7 +197,6 @@ contract OIBetShowcase is Ownable {
             sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
         }
          
-        
         sportEventsByDateAndSport[dayStart][currentEvent.sport][0].poolAmount += amount;   
         
         betsByEventStartDate[dayStart].push(bet);
@@ -211,13 +210,16 @@ contract OIBetShowcase is Ownable {
 
     function claimWinnings(uint256 _betId) external {
         Bet storage bet = betById[_betId];
+        require(bet.winMultiplier > 0, "Invalid betId");
+        require(bet.bettor == msg.sender, "You are not the bettor");
         SportEvent memory sportEvent = sportEvents[bet.eventUID];
         require(sportEvent.uid != 0, "Event does not exist");
-        require(sportEvent.winner > 0, "Results not drawn");
-        require(bet.bettor == msg.sender, "You are not the bettor");
-        require(bet.winMultiplier > 0, "Bet has not been settled yet");
+        require(sportEvent.winner > 0, "Result not drawn");
 
-        require(sportEvent.winner == bet.betChoice, "Not winner");
+        require(
+            sportEvent.winner == sportEvent.choices[bet.betChoice].choiceId, 
+            "Not winner"
+        );
         require(!bet.claimed, "Winnings already claimed");
 
         bet.claimed = true;
@@ -229,6 +231,17 @@ contract OIBetShowcase is Ownable {
             sportEvents[bet.eventUID].winner,
             bet.winMultiplier
         );
+    }
+
+    // ONLY FOR DEBUGGING !!!
+    // ONLY FOR DEBUGGING !!!
+    // ONLY FOR DEBUGGING !!!
+    function setWinner(bytes32 uid, uint16 choice) external onlyOwner {
+        sportEvents[uid].winner = choice;
+    }
+
+    function getEventChoiceData(bytes32 uuid, uint32 _choice) external view returns (Choices memory) {
+        return sportEvents[uuid].choices[_choice];
     }
 
     function getBetsByDate(uint256 date) external view returns (Bet[] memory) {
@@ -250,11 +263,14 @@ contract OIBetShowcase is Ownable {
     ) public view returns (uint256) {
         SportEvent storage currentEvent = sportEvents[eventUID];
         require(currentEvent.uid != 0, "Event does not exist");
-        require(currentEvent.startTime < block.timestamp, "Event not started yet");
+        require(
+            currentEvent.startTime > block.timestamp,
+            "Event already started"
+        );
 
         uint256 totalChoiceAmount = currentEvent.choices[choiceId].totalBetsAmount +
             amount;
-        uint256 totalPoolAmount = currentEvent.poolAmount;
+        uint256 totalPoolAmount = currentEvent.poolAmount + amount;
         uint256 multiplier = calculateMultiplier(totalChoiceAmount, totalPoolAmount);
         return amount * multiplier / MULTIPLIER_FACTOR;
     }
