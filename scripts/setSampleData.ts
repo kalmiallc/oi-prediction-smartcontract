@@ -34,7 +34,7 @@ async function fillSampleData(contractIst: OIBetShowcaseContract) {
       sport,
       choices,
       initialBets,
-      ethers.parseUnits(event.initialPool.toString(), "ether"),
+      ethers.parseUnits(event.initialPool.toString(), "ether"), // Initial pool value
       {value: ethers.parseUnits(event.initialPool.toString(), "ether")}
     );
 
