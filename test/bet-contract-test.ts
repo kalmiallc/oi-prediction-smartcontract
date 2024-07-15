@@ -128,12 +128,12 @@ describe("Flare bet contract", function () {
     // sportEvent = await BC.sportEvents(uid);
     // console.log(ethers.formatUnits(sportEvent[4], "ether"));
 
-    betAmount = ethers.parseUnits("40", "ether");
+    const betAmount2 = ethers.parseUnits("40", "ether");
 
-    result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
+    result = await BC.calculateAproximateBetReturn(betAmount2, 0, uid);
     // console.log(ethers.formatUnits(result, "ether"));
 
-    tx = await BC.placeBet(uid, 0, {value: betAmount});
+    tx = await BC.placeBet(uid, 0, {value: betAmount2});
     await tx.wait();
 
     // Try claiming before result drawn
@@ -150,12 +150,31 @@ describe("Flare bet contract", function () {
 
     // BetId 3 is not a winner
     let claimTx;
+    let receipt;
+    let expectedReturn;
+    let gasSpent;
+    let ownerBalanceBefore;
+    let betData;
     for(let i = 1; i <= lastBetId; i++) {
+      ownerBalanceBefore = await hre.ethers.provider.getBalance(owner.address);
+
       if (i == 3) {
         await expect(BC.claimWinnings(i)).to.be.revertedWith(`Not winner`);
       } else {
+
+        betData = await BC.betById(i);
+
+        expectedReturn = BigInt(betData[3] * betData[4]) / BigInt(1000);
+
         claimTx = await BC.claimWinnings(i);
-        await claimTx.wait();
+        receipt = await claimTx.wait();
+
+        gasSpent = BigInt(receipt.gasUsed * receipt.gasPrice);
+
+        // Verify that the right amount was claimed and transferred to owner.address
+        expect(ownerBalanceBefore - gasSpent + expectedReturn).to.equal(
+          await hre.ethers.provider.getBalance(owner.address)
+        );
       }
     }
     
