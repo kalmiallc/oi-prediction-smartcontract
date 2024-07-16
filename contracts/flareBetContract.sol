@@ -3,7 +3,11 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
+import "./attestationType/MatchResult.sol";
+
+interface IMatchResultVerification {
+    function verifyMatchResult(MatchResult.Proof calldata proof) external view returns (bool);
+}
 
 contract OIBetShowcase is Ownable {
     uint256 public constant DAY = 86400;
@@ -13,8 +17,11 @@ contract OIBetShowcase is Ownable {
     uint256 private maxBet;
     uint256 public betId = 0;
 
-    constructor() {
+    IMatchResultVerification public verification;
+
+    constructor(address _verification) {
         maxBet = 100 ether;
+        verification = IMatchResultVerification(_verification);
     }
 
     enum Sports {
@@ -377,6 +384,29 @@ contract OIBetShowcase is Ownable {
         bytes32 resultHash
     ) public pure returns (bool) {
         return resultHash == keccak256(abi.encodePacked(uid, requestNumber, result));
+    }
+
+    function finalizeMatch(MatchResult.Proof calldata proof) external {
+        // Check with state connector
+        require(
+            verification.verifyMatchResult(proof),
+            "MatchResult is not confirmed by the State Connector"
+        );
+
+        bytes32 uid = generateUID(
+            Sports(proof.data.requestBody.sport),
+            proof.data.requestBody.gender,
+            proof.data.requestBody.date,
+            proof.data.requestBody.teams
+        );
+
+        SportEvent storage sportEvent = sportEvents[uid];
+        require(sportEvent.uid != 0, "Event does not exist");
+        require(sportEvent.winner == 0, "Result already drawn");
+
+        // TODO: Maybe also check if result is a valid option
+
+        sportEvent.winner = proof.data.responseBody.result;
     }
 
     // ONLY FOR DEBUGGING !!!
