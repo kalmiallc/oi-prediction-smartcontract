@@ -14,7 +14,7 @@ describe("Flare bet contract", function () {
   beforeEach(async () => {
     [owner, executor, account1, account2] = await ethers.getSigners();
 
-    BC = await ethers.deployContract("OIBetShowcase", []);
+    BC = await ethers.deployContract("OIBetShowcase", [ethers.ZeroAddress]);
 
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
