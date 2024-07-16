@@ -5,7 +5,7 @@ import sampleData from "./sampleSportEvents.json";
 import { Sports } from "../test/listOfSports";
 
 async function main() {
-  const contractAddress = "0x37B301D7981B979c1ebbb7C4339294F7278fdb78";
+  const contractAddress = "0x93Ff41ac89E20fcbb947324042501B5f9dB6a782";
   const contractIst: OIBetShowcaseContract = await ethers.getContractAt(
     "OIBetShowcase",
     contractAddress
@@ -16,10 +16,19 @@ async function main() {
 main().then(() => process.exit(0));
 
 async function fillSampleData(contractIst: OIBetShowcaseContract) {
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
   for (const event of sampleData) {
+    const gender = 0;
     const sport = Object.keys(Sports).indexOf(event.sport);
     const choices = [event.choice1, event.choice2];
     const initialBets = [event.initialBets1, event.initialBets2];
+
+    const eventUID = ethers.keccak256(
+      abiCoder.encode(
+        ['uint32', 'uint8', 'uint256', 'string'],
+        [ Object.keys(Sports).indexOf(event.sport), gender, convertStartTime(event.startTime), event.match ]
+      )
+    );
 
     if (
       false == ["Basketball", "Basketball3x3", "Tennis", "Volleyball", "Badminton"].includes(event.sport)
@@ -31,10 +40,12 @@ async function fillSampleData(contractIst: OIBetShowcaseContract) {
     const txInst = await contractIst.createSportEvent(
       event.match,
       convertStartTime(event.startTime),
+      gender,
       sport,
       choices,
       initialBets,
       ethers.parseUnits(event.initialPool.toString(), "ether"), // Initial pool value
+      eventUID,
       {value: ethers.parseUnits(event.initialPool.toString(), "ether")}
     );
 

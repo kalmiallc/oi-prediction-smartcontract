@@ -41,7 +41,7 @@ pragma solidity >=0.7.6 <0.9;
 * */
 
 /**
- * @custom:name MatchResultRequest
+ * @custom:name MatchResult
  * @custom:id 0x07
  * @custom:supported WEB
  * @author Kalmia
@@ -49,7 +49,7 @@ pragma solidity >=0.7.6 <0.9;
  * @custom:verification Result is returned from the oi-flare-proxy API.
  * @custom:lut `0xffffffffffffffff` ($2^{64}-1$ in hex)
  */
-interface MatchResultRequest {
+interface MatchResult {
     /**
      * @notice Toplevel request
      * @param attestationType ID of the attestation type.
@@ -93,7 +93,7 @@ interface MatchResultRequest {
     }
 
     /**
-     * @notice Request body for MatchResultRequest attestation type
+     * @notice Request body for MatchResult attestation type
      * @param date date of a match (unix timestamp without hour - rounded down to day)
      * @param sport id of a sport from
      *       0 - Basketball,
@@ -118,7 +118,7 @@ interface MatchResultRequest {
     }
 
     /**
-     * @notice Response body for MatchResultRequest attestation type.
+     * @notice Response body for MatchResult attestation type.
      * @param timestamp Unix timestamp of the exact match beginning
      * @param result Possible return values are 0 = no data, 1 = team 1 won, 2 = team 2 won, 3 = draw
      */
