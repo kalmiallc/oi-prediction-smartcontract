@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract OIBetShowcase is Ownable {
     uint256 public constant DAY = 86400;
@@ -37,6 +38,7 @@ contract OIBetShowcase is Ownable {
         Sports sport;
         uint256 poolAmount;
         uint16 winner;
+        uint8 gender;
         Choices[] choices;
     }
 
@@ -59,11 +61,12 @@ contract OIBetShowcase is Ownable {
     }
 
     mapping(bytes32 => SportEvent) public sportEvents;
-    mapping(uint256 => mapping(Sports => SportEvent[]))
+    mapping(uint256 => mapping(Sports => bytes32[]))
         public sportEventsByDateAndSport;
-    mapping(uint256 => Bet[]) public betsByEventStartDate;
-    mapping(uint256 => mapping(address => Bet[])) public betsByDateAndUser;
-    mapping(bytes32 => Bet[]) public betsByEvent;
+
+    mapping(uint256 => uint256[]) public betsByEventStartDate;
+    mapping(uint256 => mapping(address => uint256[])) public betsByDateAndUser;
+    mapping(bytes32 => uint256[]) public betsByEvent;
     mapping(uint256 => Bet) public betById;
 
     event SportEventCreated(bytes32 uid, string title, Sports sport, uint256 startTime);
@@ -79,12 +82,15 @@ contract OIBetShowcase is Ownable {
     function createSportEvent(
         string memory title,
         uint256 startTime,
+        uint8 gender,
         Sports sport,
         string[] memory choices,
         uint32[] memory initialVotes,
-        uint256 initialPool
+        uint256 initialPool,
+        bytes32 _uid
     ) external payable onlyOwner {
-        bytes32 uid = generateUID(title, startTime, sport);
+        bytes32 uid = generateUID(sport, gender, startTime, title);
+        require(uid == _uid, "UID mismatch");
         require(sportEvents[uid].uid == 0, "Event already exists");
         require(msg.value == initialPool, "msg.value != initialPool");
         require(
@@ -122,7 +128,7 @@ contract OIBetShowcase is Ownable {
             );
         }
 
-        sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev);
+        sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev.uid);
 
         emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
     }
@@ -131,7 +137,13 @@ contract OIBetShowcase is Ownable {
         uint256 date,
         Sports sport
     ) external view returns (SportEvent[] memory) {
-        return sportEventsByDateAndSport[date][sport];
+        uint256 len = sportEventsByDateAndSport[date][sport].length;
+        SportEvent[] memory events = new SportEvent[](len);
+        
+        for (uint256 i = 0; i < len; i++) {
+            events[i] = sportEvents[sportEventsByDateAndSport[date][sport][i]];
+        }
+        return events;
     }
 
     function getSportEventFromUID(bytes32 uid) external view returns (SportEvent memory) {
@@ -192,20 +204,15 @@ contract OIBetShowcase is Ownable {
                 currentEvent.choices[i].totalBetsAmount,
                 currentEvent.poolAmount
             );
-            // handle also events by data and sport mapping 
-            sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].currentMultiplier = currentEvent.choices[i].currentMultiplier;
-            sportEventsByDateAndSport[dayStart][currentEvent.sport][0].choices[i].totalBetsAmount = currentEvent.choices[i].totalBetsAmount;
         }
-         
-        sportEventsByDateAndSport[dayStart][currentEvent.sport][0].poolAmount += amount;   
         
-        betsByEventStartDate[dayStart].push(bet);
-        betsByDateAndUser[dayStart][msg.sender].push(bet);
+        betsByEventStartDate[dayStart].push(bet.id);
+        betsByDateAndUser[dayStart][msg.sender].push(bet.id);
 
-        betsByEvent[eventUID].push(bet);
-        betById[betId] = bet;
+        betsByEvent[eventUID].push(bet.id);
+        betById[bet.id] = bet;
 
-        emit BetPlaced(betId, eventUID, msg.sender, amount, choice);
+        emit BetPlaced(bet.id, eventUID, msg.sender, amount, choice);
     }
 
     function claimWinnings(uint256 _betId) external {
@@ -256,7 +263,11 @@ contract OIBetShowcase is Ownable {
      * @dev Bets by event
      */
     function getBetsByEvent(bytes32 uuid) external view returns (Bet[] memory) {
-        return betsByEvent[uuid];
+        Bet[] memory bets = new Bet[](betsByEvent[uuid].length);
+        for (uint256 i = 0; i < betsByEvent[uuid].length; i++) {
+            bets[i] = betById[betsByEvent[uuid][i]];
+        }
+        return bets;
     }
 
     /**
@@ -266,7 +277,7 @@ contract OIBetShowcase is Ownable {
         uint256 cnt = to - from;
         Bet[] memory bets = new Bet[](cnt);
         for (uint256 i = 0; i < cnt; i++) {
-            bets[i] = betsByEventStartDate[date][from + i];
+            bets[i] = betById[betsByEventStartDate[date][from + i]];
         }
         return bets;
     }
@@ -286,7 +297,7 @@ contract OIBetShowcase is Ownable {
         uint256 cnt = to - from;
         Bet[] memory bets = new Bet[](cnt);
         for (uint256 i = 0; i < cnt; i++) {
-            bets[i] = betsByDateAndUser[date][user][from + i];
+            bets[i] = betById[betsByDateAndUser[date][user][from + i]];
         }
         return bets;
     }
@@ -351,11 +362,12 @@ contract OIBetShowcase is Ownable {
     }
 
     function generateUID(
-        string memory title,
+        Sports sport,
+        uint8 gender,
         uint256 startTime,
-        Sports sport
+        string memory title
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(title, sport, startTime));
+        return keccak256(abi.encode(sport, gender, startTime, title));
     }
 
     function checkResultHash(

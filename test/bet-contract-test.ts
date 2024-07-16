@@ -16,15 +16,27 @@ describe("Flare bet contract", function () {
 
     BC = await ethers.deployContract("OIBetShowcase", []);
 
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+
     EVENTS = getEvents();
     for (const event of EVENTS) {
+      const gender = 0;
+      const eventUID = ethers.keccak256(
+        abiCoder.encode(
+          ['uint32', 'uint8', 'uint256', 'string'],
+          [ Object.keys(Sports).indexOf(event.sport), gender, convertStartTime(event.startTime), event.match ]
+        )
+      );
+
       const txInst = await BC.createSportEvent(
         event.match,
         convertStartTime(event.startTime),
+        gender,
         Object.keys(Sports).indexOf(event.sport),
         [event.choice1, event.choice2, event.choice3],
         [event.initialBets1, event.initialBets2, event.initialBets3],
         ethers.parseUnits(event.initialPool.toString(), "ether"),
+        eventUID,
         {value: ethers.parseUnits(event.initialPool.toString(), "ether")}
       );
       await txInst.wait();  
@@ -33,12 +45,14 @@ describe("Flare bet contract", function () {
 
   it("Verify sport event creation", async () => {
     const event0 = EVENTS[0];
+    const gender = 0;
     const startTime = convertStartTime(event0.startTime);
     const sportId = Object.keys(Sports).indexOf(event0.sport);
     const uid = await BC.generateUID(
-      event0.match, 
+      sportId,
+      gender,
       startTime,
-      sportId
+      event0.match, 
     );
 
     const sportEvent = await BC.sportEvents(uid);
@@ -52,12 +66,14 @@ describe("Flare bet contract", function () {
 
   it("Check expected return", async () => {
     const event0 = EVENTS[0];
+    const gender = 0;
     const startTime = convertStartTime(event0.startTime);
     const sportId = Object.keys(Sports).indexOf(event0.sport);
     const uid = await BC.generateUID(
-      event0.match, 
+      sportId,
+      gender,
       startTime,
-      sportId
+      event0.match, 
     );
 
     let betAmount = ethers.parseUnits("5", "ether");
@@ -181,16 +197,19 @@ describe("Flare bet contract", function () {
   });
 
   it("Check bets view functions", async () => {
+    const gender = 0;
     const uid_event_0 = await BC.generateUID(
-      EVENTS[0].match, 
+      Object.keys(Sports).indexOf(EVENTS[0].sport),
+      gender,
       convertStartTime(EVENTS[0].startTime),
-      Object.keys(Sports).indexOf(EVENTS[0].sport)
+      EVENTS[0].match, 
     );
 
     const uid_event_1 = await BC.generateUID(
-      EVENTS[1].match, 
+      Object.keys(Sports).indexOf(EVENTS[1].sport),
+      gender,
       convertStartTime(EVENTS[1].startTime),
-      Object.keys(Sports).indexOf(EVENTS[1].sport)
+      EVENTS[1].match, 
     );
 
     const betAmount = ethers.parseUnits("5", "ether");
