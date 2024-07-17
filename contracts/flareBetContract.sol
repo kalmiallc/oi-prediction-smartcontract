@@ -68,12 +68,14 @@ contract OIBetShowcase is Ownable {
     }
 
     mapping(bytes32 => SportEvent) public sportEvents;
+    mapping(bytes32 => bool) public eventRefund; // is event in refund state
     mapping(uint256 => mapping(Sports => bytes32[]))
         public sportEventsByDateAndSport;
 
     mapping(uint256 => uint256[]) public betsByEventStartDate;
     mapping(uint256 => mapping(address => uint256[])) public betsByDateAndUser;
     mapping(bytes32 => uint256[]) public betsByEvent;
+    mapping(address => uint256[]) public betsByUser;
     mapping(uint256 => Bet) public betById;
 
     event SportEventCreated(bytes32 uid, string title, Sports sport, uint256 startTime);
@@ -85,6 +87,7 @@ contract OIBetShowcase is Ownable {
         uint16 choice
     );
     event BetSettled(bytes32 eventUID, uint32 winner, uint256 winMultiplier);
+    event BetRefunded(bytes32 eventUID);
 
     function createSportEvent(
         string memory title,
@@ -140,6 +143,41 @@ contract OIBetShowcase is Ownable {
         emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
     }
 
+    function editSportEvent(
+        bytes32 _uid,
+        string memory title,
+        uint256 startTime
+    ) external payable onlyOwner {
+        SportEvent storage ev = sportEvents[_uid];
+        require(ev.uid != 0, "Event does not exist");
+        require(ev.winner == 0, "Result already drawn");
+
+        uint256 oldDay = roundTimestampToDay(ev.startTime);
+
+        ev.title = title;
+        ev.startTime = startTime;
+
+        // Check if event needs to be moved to another day
+        if(oldDay != roundTimestampToDay(ev.startTime)) {
+            // Find event in sportEventsByDateAndSport
+            uint256 eventIdx;
+            uint256 len = sportEventsByDateAndSport[oldDay][ev.sport].length;
+            for(uint256 i = 0; i < len; i++) {
+                if(sportEventsByDateAndSport[oldDay][ev.sport][i] == ev.uid) {
+                    eventIdx = i;
+                    break;
+                }
+            }
+
+            // Shift last element to eventIdx and remove last element
+            sportEventsByDateAndSport[oldDay][ev.sport][eventIdx] = sportEventsByDateAndSport[oldDay][ev.sport][len - 1];
+            sportEventsByDateAndSport[oldDay][ev.sport].pop();
+
+            // Add event to new day
+            sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][ev.sport].push(ev.uid);
+        }
+    }
+
     function getSportEventsByDateAndSport(
         uint256 date,
         Sports sport
@@ -164,6 +202,7 @@ contract OIBetShowcase is Ownable {
 
         SportEvent storage currentEvent = sportEvents[eventUID];
         require(currentEvent.uid != 0, "Event does not exist");
+        require(!eventRefund[currentEvent.uid], "Event in refund state");
         require(
             currentEvent.startTime > block.timestamp,
             "Event already started"
@@ -213,6 +252,7 @@ contract OIBetShowcase is Ownable {
             );
         }
         
+        betsByUser[msg.sender].push(bet.id);
         betsByEventStartDate[dayStart].push(bet.id);
         betsByDateAndUser[dayStart][msg.sender].push(bet.id);
 
@@ -229,6 +269,7 @@ contract OIBetShowcase is Ownable {
         SportEvent memory sportEvent = sportEvents[bet.eventUID];
         require(sportEvent.uid != 0, "Event does not exist");
         require(sportEvent.winner > 0, "Result not drawn");
+        require(!eventRefund[sportEvent.uid], "Event in refund state");
 
         require(
             sportEvent.winner == sportEvent.choices[bet.betChoice].choiceId, 
@@ -245,6 +286,28 @@ contract OIBetShowcase is Ownable {
             sportEvents[bet.eventUID].winner,
             bet.winMultiplier
         );
+    }
+
+    function refund(uint256 _betId) external {
+        Bet storage bet = betById[_betId];
+        require(bet.winMultiplier > 0, "Invalid betId");
+        require(bet.bettor == msg.sender, "You are not the bettor");
+        SportEvent memory sportEvent = sportEvents[bet.eventUID];
+        require(sportEvent.uid != 0, "Event does not exist");
+        require(sportEvent.winner == 0, "Result already drawn");
+
+        require(!bet.claimed, "Refund already claimed");
+
+        require(
+            sportEvent.startTime + DAY * 14 < block.timestamp,
+            "Refund possible 14 days after event startTime"
+        );
+
+        bet.claimed = true;
+        eventRefund[sportEvent.uid] = true;
+        payable(msg.sender).transfer(bet.betAmount);
+
+        emit BetRefunded(bet.eventUID);
     }
 
     /**
@@ -295,6 +358,26 @@ contract OIBetShowcase is Ownable {
 
     function betsByEventStartDateLength(uint256 date) external view returns (uint256) {
         return betsByEventStartDate[date].length;
+    }
+
+    /**
+     * @dev Bets by user
+     */
+    function getBetsByUserFromTo(address user, uint256 from, uint256 to) public view returns (Bet[] memory) {
+        uint256 cnt = to - from;
+        Bet[] memory bets = new Bet[](cnt);
+        for (uint256 i = 0; i < cnt; i++) {
+            bets[i] = betById[betsByUser[user][from + i]];
+        }
+        return bets;
+    }
+
+    function getBetsByUser(address user) external view returns (Bet[] memory) {
+        return getBetsByUserFromTo(user, 0, betsByUser[user].length);
+    }
+
+    function betsByUserLength(address user) external view returns (uint256) {
+        return betsByUser[user].length;
     }
 
     /**

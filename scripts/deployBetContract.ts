@@ -3,9 +3,9 @@ import { artifacts, ethers, run } from 'hardhat';
 
 async function main() {
 
-    const args: any[] = []
+    const args: any[] = [ethers.ZeroAddress]
     
-    const flareBetContract = await ethers.deployContract("OIBetShowcase", []);
+    const flareBetContract = await ethers.deployContract("OIBetShowcase", args);
     console.log("OIBetShowcase deployed to:", flareBetContract.target);
     try {
 

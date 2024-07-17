@@ -272,6 +272,26 @@ describe("Flare bet contract", function () {
     betRes = await BC.getBetsByDate(date_event_1);
     expect(betRes.length).to.equal(20);
   });
+
+  it("Return betsByUser 1200 bets in 1 call", async () => {
+    const betAmount = ethers.parseUnits("1", "ether");
+    const gender = 0;
+    const uid_event_0 = await BC.generateUID(
+      Object.keys(Sports).indexOf(EVENTS[0].sport),
+      gender,
+      convertStartTime(EVENTS[0].startTime),
+      EVENTS[0].match, 
+    );
+
+    // Place 3000 bets with account1 to EVENT 0
+    for(let i = 0; i < 3000; i++) {
+      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, {value: betAmount});
+      await tx.wait();
+    }
+
+    const betRes = await BC.getBetsByUserFromTo(account1.address, 0, 1200);
+    expect(betRes.length).to.equal(1200);
+  });
 });
 
 export function convertStartTime(startTime: string) {
