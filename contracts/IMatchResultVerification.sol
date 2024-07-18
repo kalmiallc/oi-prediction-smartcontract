@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../../interface/types/MatchResult.sol";
+import "./attestationType/MatchResult.sol";
 
 /**
  * Interface for verifying MatchResult attestations within the [State Connector](https://docs.flare.network/tech/state-connector/).

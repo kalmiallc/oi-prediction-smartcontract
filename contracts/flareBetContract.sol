@@ -69,6 +69,7 @@ contract OIBetShowcase is Ownable {
 
     mapping(bytes32 => SportEvent) public sportEvents;
     mapping(bytes32 => bool) public eventRefund; // is event in refund state
+    mapping(Sports => bytes32[]) public sportEventsBySport;
     mapping(uint256 => mapping(Sports => bytes32[]))
         public sportEventsByDateAndSport;
 
@@ -138,6 +139,7 @@ contract OIBetShowcase is Ownable {
             );
         }
 
+        sportEventsBySport[sport].push(ev.uid);
         sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev.uid);
 
         emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
@@ -327,6 +329,26 @@ contract OIBetShowcase is Ownable {
             events[i] = sportEvents[uids[i]];
         }
         return events;
+    }
+
+    /**
+     * @dev Events by sport
+     */
+    function getSportEventsBySportFromTo(Sports sport, uint256 from, uint256 to) public view returns (SportEvent[] memory) {
+        uint256 cnt = to - from;
+        SportEvent[] memory events = new SportEvent[](cnt);
+        for (uint256 i = 0; i < cnt; i++) {
+            events[i] = sportEvents[sportEventsBySport[sport][from + i]];
+        }
+        return events;
+    }
+
+    function getSportEventsBySport(Sports sport) external view returns (SportEvent[] memory) {
+        return getSportEventsBySportFromTo(sport, 0, sportEventsBySport[sport].length);
+    }
+
+    function sportEventsBySportLength(Sports sport) external view returns (uint256) {
+        return sportEventsBySport[sport].length;
     }
 
     /**
