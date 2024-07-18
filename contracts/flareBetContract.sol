@@ -20,6 +20,19 @@ contract OIBetShowcase is Ownable {
 
     IMatchResultVerification public verification;
 
+    /**
+     * @dev Mapping of addresses that are authorized to add mint new tokens.
+     */
+    mapping (address => bool) public authorizedAddresses;
+
+    /**
+     * @dev Only authorized addresses can call a function with this modifier.
+     */
+    modifier onlyAuthorized() {
+        require(authorizedAddresses[msg.sender] || owner() == msg.sender, "Not authorized");
+        _;
+    }
+
     constructor(address _verification) {
         maxBet = 100 ether;
         verification = IMatchResultVerification(_verification);
@@ -47,6 +60,7 @@ contract OIBetShowcase is Ownable {
         uint256 poolAmount;
         uint16 winner;
         uint8 gender;
+        bool cancelled;
         Choices[] choices;
     }
 
@@ -100,7 +114,7 @@ contract OIBetShowcase is Ownable {
         uint32[] memory initialVotes,
         uint256 initialPool,
         bytes32 _uid
-    ) external payable onlyOwner {
+    ) external payable onlyAuthorized() {
         bytes32 uid = generateUID(sport, gender, startTime, title);
         require(uid == _uid, "UID mismatch");
         require(sportEvents[uid].uid == 0, "Event already exists");
@@ -117,10 +131,10 @@ contract OIBetShowcase is Ownable {
         ev.uid = uid;
         ev.title = title;
 
-        // divide the pool amount by the number of choices
         ev.poolAmount = initialPool;
         ev.startTime = startTime;
         ev.sport = sport;
+        ev.cancelled = false;
 
         uint256 sumVotes;
         for (uint256 i = 0; i < initialVotes.length; i++) {
@@ -146,39 +160,11 @@ contract OIBetShowcase is Ownable {
         emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
     }
 
-    function editSportEvent(
-        bytes32 _uid,
-        string memory title,
-        uint256 startTime
-    ) external payable onlyOwner {
+    function cancelSportEvent(bytes32 _uid) external onlyAuthorized() {
         SportEvent storage ev = sportEvents[_uid];
         require(ev.uid != 0, "Event does not exist");
         require(ev.winner == 0, "Result already drawn");
-
-        uint256 oldDay = roundTimestampToDay(ev.startTime);
-
-        ev.title = title;
-        ev.startTime = startTime;
-
-        // Check if event needs to be moved to another day
-        if(oldDay != roundTimestampToDay(ev.startTime)) {
-            // Find event in sportEventsByDateAndSport
-            uint256 eventIdx;
-            uint256 len = sportEventsByDateAndSport[oldDay][ev.sport].length;
-            for(uint256 i = 0; i < len; i++) {
-                if(sportEventsByDateAndSport[oldDay][ev.sport][i] == ev.uid) {
-                    eventIdx = i;
-                    break;
-                }
-            }
-
-            // Shift last element to eventIdx and remove last element
-            sportEventsByDateAndSport[oldDay][ev.sport][eventIdx] = sportEventsByDateAndSport[oldDay][ev.sport][len - 1];
-            sportEventsByDateAndSport[oldDay][ev.sport].pop();
-
-            // Add event to new day
-            sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][ev.sport].push(ev.uid);
-        }
+        ev.cancelled = true;
     }
 
     function getSportEventsByDateAndSport(
@@ -206,6 +192,7 @@ contract OIBetShowcase is Ownable {
         SportEvent storage currentEvent = sportEvents[eventUID];
         require(currentEvent.uid != 0, "Event does not exist");
         require(!eventRefund[currentEvent.uid], "Event in refund state");
+        require(!currentEvent.cancelled, "Event cancelled");
         require(
             currentEvent.startTime > block.timestamp,
             "Event already started"
@@ -273,6 +260,7 @@ contract OIBetShowcase is Ownable {
         require(sportEvent.uid != 0, "Event does not exist");
         require(sportEvent.winner > 0, "Result not drawn");
         require(!eventRefund[sportEvent.uid], "Event in refund state");
+        require(!sportEvent.cancelled, "Event cancelled");
 
         require(
             sportEvent.winner == sportEvent.choices[bet.betChoice].choiceId, 
@@ -302,8 +290,8 @@ contract OIBetShowcase is Ownable {
         require(!bet.claimed, "Refund already claimed");
 
         require(
-            sportEvent.startTime + DAY * 14 < block.timestamp,
-            "Refund possible 14 days after event startTime"
+            sportEvent.cancelled || sportEvent.startTime + DAY * 14 < block.timestamp,
+            "Refund only for cancelled or 14 days after event startTime (if winner not set)"
         );
 
         bet.claimed = true;
@@ -522,6 +510,18 @@ contract OIBetShowcase is Ownable {
     function withdraw(uint256 amount) external onlyOwner {
         require(!isProduction, "Cannot withdraw in production mode");
         payable(msg.sender).transfer(amount);
+    }
+
+    /**
+     * @dev Sets or revokes authorized address.
+     * @param addr Address we are setting.
+     * @param isAuthorized True is setting, false if we are revoking.
+     */
+    function setAuthorizedAddress(address addr, bool isAuthorized)
+        external
+        onlyOwner()
+    {
+        authorizedAddresses[addr] = isAuthorized;
     }
 
 

@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { OIBetShowcaseContract } from "../typechain-types";
 
 async function main() {
-  const contractAddress = "0x1379cb2A9Bd9a4B68cB234C545cDd9D111Bf79a9";
+  const contractAddress = "0xD421D62163FC668A45b224D2145F2e2578582F54";
   const contractIst: OIBetShowcaseContract = await ethers.getContractAt(
     "OIBetShowcase",
     contractAddress
@@ -23,9 +23,9 @@ async function fillSampleData(contractIst: OIBetShowcaseContract) {
   let i = 0; 
   for (const event of res) {
     i++;
-    if (i <= 2) {
-      continue;
-    }
+    // if (i <= 2) {
+    //   continue;
+    // }
     const choices = event.choices.map(x => x.choice);
     const initialBets = event.choices.map(x => x.initialBet);
 
