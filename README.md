@@ -47,7 +47,7 @@ For this attestation type, the verifier server calls a WEB2 API, which returns t
 
 #### Passing the Data to the Contract
 
-The results data passed to the contract is fetched by calling the `finalizeMatch` method. This method must be called using the Merkle proof. To get the Merkle tree proof, a WEB2 API call must be made to the attestation provider. The logic for this call is in the `Backend application` repository.
+The results data passed to the contract is fetched by calling the `finalizeMatch` method. This method must be called using the Merkle proof. The method uses `MatchResultVerification` contract to verify the results. To get the Merkle tree proof, a WEB2 API call must be made to the attestation provider. The logic for this call is in the `Backend application` repository.
 
 ### Getting Started
 
