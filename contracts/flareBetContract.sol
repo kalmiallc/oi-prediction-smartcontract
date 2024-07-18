@@ -16,6 +16,7 @@ contract OIBetShowcase is Ownable {
     // max bet is 100 songbird / flare
     uint256 private maxBet;
     uint256 public betId = 0;
+    bool public isProduction = true;
 
     IMatchResultVerification public verification;
 
@@ -513,6 +514,16 @@ contract OIBetShowcase is Ownable {
 
         sportEvent.winner = proof.data.responseBody.result;
     }
+
+    function flipIsProduction() external onlyOwner {
+        isProduction = !isProduction;
+    }
+
+    function withdraw(uint256 amount) external onlyOwner {
+        require(!isProduction, "Cannot withdraw in production mode");
+        payable(msg.sender).transfer(amount);
+    }
+
 
     // ONLY FOR DEBUGGING !!!
     // ONLY FOR DEBUGGING !!!
