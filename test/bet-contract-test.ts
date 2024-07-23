@@ -1,10 +1,8 @@
 import { ethers } from "hardhat";
 import { Sports } from "./listOfSports";
 
-let timestamp = Math.ceil(new Date().getTime() / 1000);
-
 describe("Flare bet contract", function () {
-  let owner, executor, account1, account2, BC;
+  let owner, executor, account1, account2, BC, TOKEN, VERIFICATION;
   let EVENTS;
 
   before(async () => {
@@ -14,7 +12,19 @@ describe("Flare bet contract", function () {
   beforeEach(async () => {
     [owner, executor, account1, account2] = await ethers.getSigners();
 
-    BC = await ethers.deployContract("OIBetShowcase", [ethers.ZeroAddress]);
+    VERIFICATION = await ethers.deployContract("DummyVerification", []);
+    await VERIFICATION.waitForDeployment();
+
+    TOKEN = await ethers.deployContract("OIToken", ['OI Token', 'OI']);
+    await TOKEN.waitForDeployment();
+
+    BC = await ethers.deployContract("OIBetShowcase", [(await TOKEN.getAddress()), (await VERIFICATION.getAddress())]);
+    await BC.waitForDeployment();
+
+    // approve
+    await TOKEN.approve(await BC.getAddress(), ethers.MaxUint256);
+    await TOKEN.transfer(account1.address, ethers.parseUnits("100000", "ether"));
+    await TOKEN.connect(account1).approve(await BC.getAddress(), ethers.MaxUint256);
 
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
@@ -29,6 +39,7 @@ describe("Flare bet contract", function () {
       );
 
       const txInst = await BC.createSportEvent(
+        event.match, // title
         event.match,
         convertStartTime(event.startTime),
         gender,
@@ -36,8 +47,7 @@ describe("Flare bet contract", function () {
         [event.choice1, event.choice2, event.choice3],
         [event.initialBets1, event.initialBets2, event.initialBets3],
         ethers.parseUnits(event.initialPool.toString(), "ether"),
-        eventUID,
-        {value: ethers.parseUnits(event.initialPool.toString(), "ether")}
+        eventUID
       );
       await txInst.wait();  
     }
@@ -58,10 +68,11 @@ describe("Flare bet contract", function () {
     const sportEvent = await BC.sportEvents(uid);
     expect(sportEvent[0]).to.equal(uid);
     expect(sportEvent[1]).to.equal(event0.match);
-    expect(sportEvent[2]).to.equal(startTime);
-    expect(sportEvent[3]).to.equal(sportId);
-    expect(sportEvent[4]).to.equal(ethers.parseUnits(event0.initialPool, "ether"));
-    expect(sportEvent[5]).to.equal(0);
+    expect(sportEvent[2]).to.equal(event0.match);
+    expect(sportEvent[3]).to.equal(startTime);
+    expect(sportEvent[4]).to.equal(sportId);
+    expect(sportEvent[5]).to.equal(ethers.parseUnits(event0.initialPool, "ether"));
+    expect(sportEvent[6]).to.equal(0);
   });
 
   it("Check expected return", async () => {
@@ -81,20 +92,23 @@ describe("Flare bet contract", function () {
     let result;
     let sportEvent;
 
+    // approve
+    await TOKEN.approve(await BC.getAddress(), ethers.MaxUint256);
+
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("13.56", "ether"));
 
-    await expect(BC.placeBet(uid, 4, {value: betAmount})).to.be.revertedWith(`Invalid choice`);
+    await expect(BC.placeBet(uid, 4, betAmount)).to.be.revertedWith(`Invalid choice`);
 
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, 0, {value: betAmount});
+    tx = await BC.placeBet(uid, 0, betAmount);
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
     expect(result).to.equal(ethers.parseUnits("10.49", "ether"));
 
     // Bet and decrease weight on choiceId = 0
-    tx = await BC.placeBet(uid, 0, {value: betAmount});
+    tx = await BC.placeBet(uid, 0, betAmount);
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
@@ -105,7 +119,7 @@ describe("Flare bet contract", function () {
     expect(result).to.equal(ethers.parseUnits("14.85", "ether"));
 
     // Bet and decrease weight on choiceId = 1
-    tx = await BC.placeBet(uid, 1, {value: betAmount});
+    tx = await BC.placeBet(uid, 1, betAmount);
     await tx.wait();
 
     result = await BC.calculateAproximateBetReturn(betAmount, 0, uid);
@@ -131,7 +145,7 @@ describe("Flare bet contract", function () {
 
     // Place another 10 bets on choice 0
     for(let i = 0; i < 10; i++) {
-      tx = await BC.placeBet(uid, 0, {value: betAmount});
+      tx = await BC.placeBet(uid, 0, betAmount);
       await tx.wait();
     }
 
@@ -149,7 +163,7 @@ describe("Flare bet contract", function () {
     result = await BC.calculateAproximateBetReturn(betAmount2, 0, uid);
     // console.log(ethers.formatUnits(result, "ether"));
 
-    tx = await BC.placeBet(uid, 0, {value: betAmount2});
+    tx = await BC.placeBet(uid, 0, betAmount2);
     await tx.wait();
 
     // Try claiming before result drawn
@@ -158,21 +172,40 @@ describe("Flare bet contract", function () {
     await expect(BC.claimWinnings(666)).to.be.revertedWith(`Invalid betId`);
     await expect(BC.claimWinnings(1)).to.be.revertedWith(`Result not drawn`);
 
-    // Manually set winner
-    const txWin = await BC.setWinner(uid, 1);
+    // Set winner
+    const RANDOM_STRING  = "0x000000000000000000000000000000000000000000000000000000000000DEAD";
+    const txWin = await BC.finalizeMatch(
+      {
+        merkleProof: [],
+        data: {
+          attestationType: RANDOM_STRING,
+          sourceId: RANDOM_STRING,
+          votingRound: 0,
+          lowestUsedTimestamp: 0,
+          requestBody: {
+            date: startTime,
+            sport: sportId,
+            gender: gender,
+            teams: event0.match
+          },
+          responseBody: {
+            timestamp: startTime,
+            result: 1
+          }
+        }
+      } 
+    );
     await txWin.wait();
 
     await expect(BC.connect(account1).claimWinnings(1)).to.be.revertedWith(`You are not the bettor`);
 
     // BetId 3 is not a winner
     let claimTx;
-    let receipt;
     let expectedReturn;
-    let gasSpent;
     let ownerBalanceBefore;
     let betData;
     for(let i = 1; i <= lastBetId; i++) {
-      ownerBalanceBefore = await hre.ethers.provider.getBalance(owner.address);
+      ownerBalanceBefore = await TOKEN.balanceOf(owner.address);
 
       if (i == 3) {
         await expect(BC.claimWinnings(i)).to.be.revertedWith(`Not winner`);
@@ -183,13 +216,11 @@ describe("Flare bet contract", function () {
         expectedReturn = BigInt(betData[3] * betData[4]) / BigInt(1000);
 
         claimTx = await BC.claimWinnings(i);
-        receipt = await claimTx.wait();
-
-        gasSpent = BigInt(receipt.gasUsed * receipt.gasPrice);
+        await claimTx.wait();
 
         // Verify that the right amount was claimed and transferred to owner.address
-        expect(ownerBalanceBefore - gasSpent + expectedReturn).to.equal(
-          await hre.ethers.provider.getBalance(owner.address)
+        expect(ownerBalanceBefore + expectedReturn).to.equal(
+          await TOKEN.balanceOf(owner.address)
         );
       }
     }
@@ -216,25 +247,25 @@ describe("Flare bet contract", function () {
 
     // Place 10 bets with owner to EVENT 0
     for(let i = 0; i < 10; i++) {
-      const tx = await BC.placeBet(uid_event_0, 0, {value: betAmount});
+      const tx = await BC.placeBet(uid_event_0, 0, betAmount);
       await tx.wait();
     }
 
     // Place 20 bets with account1 to EVENT 0
     for(let i = 0; i < 20; i++) {
-      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, {value: betAmount});
+      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, betAmount);
       await tx.wait();
     }
 
     // Place 5 bets with owner to EVENT 1
     for(let i = 0; i < 5; i++) {
-      const tx = await BC.placeBet(uid_event_1, 0, {value: betAmount});
+      const tx = await BC.placeBet(uid_event_1, 0, betAmount);
       await tx.wait();
     }
 
     // Place 15 bets with account1 to EVENT 1
     for(let i = 0; i < 15; i++) {
-      const tx = await BC.connect(account1).placeBet(uid_event_1, 1, {value: betAmount});
+      const tx = await BC.connect(account1).placeBet(uid_event_1, 1, betAmount);
       await tx.wait();
     }
 
@@ -285,7 +316,7 @@ describe("Flare bet contract", function () {
 
     // Place 3000 bets with account1 to EVENT 0
     for(let i = 0; i < 3000; i++) {
-      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, {value: betAmount});
+      const tx = await BC.connect(account1).placeBet(uid_event_0, 1, betAmount);
       await tx.wait();
     }
 

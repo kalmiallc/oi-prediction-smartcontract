@@ -4,12 +4,12 @@ import { artifacts, ethers, run } from 'hardhat';
 async function main() {
 
     const args: any[] = [
-        "0x42B1951dD949D76B4199dB7B85eF35Ea8C05aF0b", // coston OI Token
-        "0xAa6Cf267D26121D4176413D80e0e851558aa6736" // coston MatchResultVerification
+        "OI Token",
+        "OI",
     ]
     
-    const flareBetContract = await ethers.deployContract("OIBetShowcase", args);
-    console.log("OIBetShowcase deployed to:", flareBetContract.target);
+    const oiTokenContract = await ethers.deployContract("OIToken", args);
+    console.log("OIToken deployed to:", oiTokenContract.target);
 
     console.log("Sleep for 30 sec...");
     await new Promise(r => setTimeout(r, 30000));
@@ -18,7 +18,7 @@ async function main() {
     try {
 
         const result = await run("verify:verify", {
-            address: flareBetContract.target,
+            address: oiTokenContract.target,
             constructorArguments: args,
         })
 
@@ -26,7 +26,7 @@ async function main() {
     } catch (e: any) {
         console.log(e.message)
     }
-    console.log("Deployed contract at:", flareBetContract.target)
+    console.log("Deployed contract at:", oiTokenContract.target)
 
 }
 main().then(() => process.exit(0))
