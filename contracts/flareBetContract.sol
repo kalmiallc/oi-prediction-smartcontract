@@ -20,7 +20,7 @@ contract OIBetShowcase is Ownable {
     IERC20 public immutable TOKEN;
 
     // max bet is 100 songbird / flare
-    uint256 private maxBet;
+    uint256 public maxBet;
     uint256 public betId = 0;
     bool public isProduction = true;
 
@@ -43,7 +43,7 @@ contract OIBetShowcase is Ownable {
         IERC20 _token,
         address _verification
     ) {
-        maxBet = 100 ether;
+        maxBet = 1000 ether;
         TOKEN = _token;
         VERIFICATION = IMatchResultVerification(_verification);
     }
@@ -588,7 +588,7 @@ contract OIBetShowcase is Ownable {
         bytes32 uid = generateUID(
             Sports(proof.data.requestBody.sport),
             proof.data.requestBody.gender,
-            proof.data.responseBody.timestamp, // take the timestamp from responseBody, because date in requestBody is rounded to 00:00 UTC
+            proof.data.requestBody.date,
             proof.data.requestBody.teams
         );
 
@@ -601,6 +601,10 @@ contract OIBetShowcase is Ownable {
 
     function flipIsProduction() external onlyOwner {
         isProduction = !isProduction;
+    }
+
+    function setMaxBet(uint256 _maxBet) external onlyOwner {
+        maxBet = _maxBet;
     }
 
     function withdraw(uint256 amount) external onlyOwner {

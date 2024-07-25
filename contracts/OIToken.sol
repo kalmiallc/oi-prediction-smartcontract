@@ -12,7 +12,7 @@ contract OIToken is ERC20 {
         string memory name, 
         string memory symbol
     ) ERC20(name, symbol) {
-        _mint(msg.sender, 1_000_000 * 1e18);
+        _mint(msg.sender, 100_000_000 * 1e18);
     }
 
     function decimals() public pure override returns (uint8) {
@@ -25,7 +25,7 @@ contract OIToken is ERC20 {
 
         hasMinted[msg.sender][day] = true;
 
-        _mint(msg.sender, 1_000 * 1e18);
+        _mint(msg.sender, 500 * 1e18);
     }
 
     function roundTimestampToDay(uint256 timestamp) private pure returns (uint256) {
