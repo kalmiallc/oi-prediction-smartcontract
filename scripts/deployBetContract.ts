@@ -4,7 +4,10 @@ import { artifacts, ethers, run } from 'hardhat';
 async function main() {
 
     const args: any[] = [
-        "0xAa6Cf267D26121D4176413D80e0e851558aa6736" // coston MatchResultVerification
+        // "0x21bb744BCc53d78b904c2E374EC460C086908537", // coston OI Token
+        "0x82AF954d52Bb42F5075c392323D983415fe68672", // songbird OI Token
+        // "0xAa6Cf267D26121D4176413D80e0e851558aa6736" // coston MatchResultVerification
+        "0x97C72b91F953cC6142ebA598fa376B80fbACA1C2" // songbird MatchResultVerification
     ]
     
     const flareBetContract = await ethers.deployContract("OIBetShowcase", args);

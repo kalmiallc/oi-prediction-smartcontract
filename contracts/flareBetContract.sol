@@ -3,6 +3,8 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./attestationType/MatchResult.sol";
 
 interface IMatchResultVerification {
@@ -10,15 +12,19 @@ interface IMatchResultVerification {
 }
 
 contract OIBetShowcase is Ownable {
+    using SafeERC20 for IERC20;
+
     uint256 public constant DAY = 86400;
     uint256 public constant MULTIPLIER_FACTOR = 1000;
 
+    IERC20 public immutable TOKEN;
+
     // max bet is 100 songbird / flare
-    uint256 private maxBet;
+    uint256 public maxBet;
     uint256 public betId = 0;
     bool public isProduction = true;
 
-    IMatchResultVerification public verification;
+    IMatchResultVerification public immutable VERIFICATION;
 
     /**
      * @dev Mapping of addresses that are authorized to add mint new tokens.
@@ -33,9 +39,13 @@ contract OIBetShowcase is Ownable {
         _;
     }
 
-    constructor(address _verification) {
-        maxBet = 100 ether;
-        verification = IMatchResultVerification(_verification);
+    constructor(
+        IERC20 _token,
+        address _verification
+    ) {
+        maxBet = 1000 ether;
+        TOKEN = _token;
+        VERIFICATION = IMatchResultVerification(_verification);
     }
 
     enum Sports {
@@ -55,6 +65,7 @@ contract OIBetShowcase is Ownable {
     struct SportEvent {
         bytes32 uid;
         string title;
+        string teams;
         uint256 startTime;
         Sports sport;
         uint256 poolAmount;
@@ -105,8 +116,48 @@ contract OIBetShowcase is Ownable {
     event BetSettled(bytes32 eventUID, uint32 winner, uint256 winMultiplier);
     event BetRefunded(bytes32 eventUID);
 
+    function bulkCreateSportEvent(
+        string[] memory title,
+        string[] memory teams,
+        uint256[] memory startTime,
+        uint8[] memory gender,
+        Sports[] memory sport,
+        string[][] memory choices,
+        uint32[][] memory initialVotes,
+        uint256[] memory initialPool,
+        bytes32[] memory _uid
+    ) external onlyAuthorized() {
+        uint256 len = title.length;
+        require(
+            teams.length == len &&
+            startTime.length == len &&
+            gender.length == len &&
+            sport.length == len &&
+            choices.length == len &&
+            initialVotes.length == len && 
+            initialPool.length == len &&
+            _uid.length == len,
+            "length mismatch" 
+        );
+
+        for (uint256 i = 0; i < title.length; i++) {
+            _createSportEvent(
+                title[i],
+                teams[i],
+                startTime[i],
+                gender[i],
+                sport[i],
+                choices[i],
+                initialVotes[i],
+                initialPool[i],
+                _uid[i]
+            );
+        }
+    }
+
     function createSportEvent(
         string memory title,
+        string memory teams,
         uint256 startTime,
         uint8 gender,
         Sports sport,
@@ -114,11 +165,35 @@ contract OIBetShowcase is Ownable {
         uint32[] memory initialVotes,
         uint256 initialPool,
         bytes32 _uid
-    ) external payable onlyAuthorized() {
-        bytes32 uid = generateUID(sport, gender, startTime, title);
+    ) external onlyAuthorized() {
+        _createSportEvent(
+            title,
+            teams,
+            startTime,
+            gender,
+            sport,
+            choices,
+            initialVotes,
+            initialPool,
+            _uid
+        );
+    }
+
+    function _createSportEvent(
+        string memory title,
+        string memory teams,
+        uint256 startTime,
+        uint8 gender,
+        Sports sport,
+        string[] memory choices,
+        uint32[] memory initialVotes,
+        uint256 initialPool,
+        bytes32 _uid
+    ) internal {
+        bytes32 uid = generateUID(sport, gender, startTime, teams);
         require(uid == _uid, "UID mismatch");
         require(sportEvents[uid].uid == 0, "Event already exists");
-        require(msg.value == initialPool, "msg.value != initialPool");
+
         require(
             choices.length == initialVotes.length, 
             "choices & initialVotes length mismatch"
@@ -130,6 +205,7 @@ contract OIBetShowcase is Ownable {
         SportEvent storage ev = sportEvents[uid];
         ev.uid = uid;
         ev.title = title;
+        ev.teams = teams;
 
         ev.poolAmount = initialPool;
         ev.startTime = startTime;
@@ -156,6 +232,14 @@ contract OIBetShowcase is Ownable {
 
         sportEventsBySport[sport].push(ev.uid);
         sportEventsByDateAndSport[roundTimestampToDay(ev.startTime)][sport].push(ev.uid);
+
+        if (initialPool > 0) {
+            TOKEN.safeTransferFrom(
+                msg.sender, 
+                address(this), 
+                initialPool
+            );
+        }
 
         emit SportEventCreated(uid, ev.title, ev.sport, ev.startTime);
     }
@@ -184,8 +268,7 @@ contract OIBetShowcase is Ownable {
         return sportEvents[uid];
     }
 
-    function placeBet(bytes32 eventUID, uint16 choice) external payable {
-        uint256 amount = msg.value;
+    function placeBet(bytes32 eventUID, uint16 choice, uint256 amount) external {
         require(amount <= maxBet, "Bet amount exceeds max bet");
         require(amount > 0, "Bet amount must be greater than 0");
 
@@ -203,6 +286,13 @@ contract OIBetShowcase is Ownable {
         );
 
         betId++;
+
+        // Transfer bet amount
+        TOKEN.safeTransferFrom(
+            msg.sender, 
+            address(this), 
+            amount
+        );
 
         // for the multiplier, we first need to add the amount to the pool, and add to the total bets ammount for the choice
         currentEvent.poolAmount += amount;
@@ -270,7 +360,11 @@ contract OIBetShowcase is Ownable {
 
         bet.claimed = true;
         uint256 winnings = bet.betAmount * bet.winMultiplier / MULTIPLIER_FACTOR;
-        payable(msg.sender).transfer(winnings);
+
+        TOKEN.safeTransfer(
+            msg.sender, 
+            winnings
+        );
 
         emit BetSettled(
             bet.eventUID,
@@ -296,7 +390,11 @@ contract OIBetShowcase is Ownable {
 
         bet.claimed = true;
         eventRefund[sportEvent.uid] = true;
-        payable(msg.sender).transfer(bet.betAmount);
+
+        TOKEN.safeTransfer(
+            msg.sender, 
+            bet.betAmount
+        );
 
         emit BetRefunded(bet.eventUID);
     }
@@ -483,7 +581,7 @@ contract OIBetShowcase is Ownable {
     function finalizeMatch(MatchResult.Proof calldata proof) external {
         // Check with state connector
         require(
-            verification.verifyMatchResult(proof),
+            VERIFICATION.verifyMatchResult(proof),
             "MatchResult is not confirmed by the State Connector"
         );
 
@@ -498,8 +596,6 @@ contract OIBetShowcase is Ownable {
         require(sportEvent.uid != 0, "Event does not exist");
         require(sportEvent.winner == 0, "Result already drawn");
 
-        // TODO: Maybe also check if result is a valid option
-
         sportEvent.winner = proof.data.responseBody.result;
     }
 
@@ -507,9 +603,17 @@ contract OIBetShowcase is Ownable {
         isProduction = !isProduction;
     }
 
+    function setMaxBet(uint256 _maxBet) external onlyOwner {
+        maxBet = _maxBet;
+    }
+
     function withdraw(uint256 amount) external onlyOwner {
         require(!isProduction, "Cannot withdraw in production mode");
-        payable(msg.sender).transfer(amount);
+        
+        TOKEN.safeTransfer(
+            msg.sender, 
+            amount
+        );
     }
 
     /**
@@ -522,13 +626,5 @@ contract OIBetShowcase is Ownable {
         onlyOwner()
     {
         authorizedAddresses[addr] = isAuthorized;
-    }
-
-
-    // ONLY FOR DEBUGGING !!!
-    // ONLY FOR DEBUGGING !!!
-    // ONLY FOR DEBUGGING !!!
-    function setWinner(bytes32 uid, uint16 choice) external onlyOwner {
-        sportEvents[uid].winner = choice;
     }
 }
